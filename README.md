@@ -13,7 +13,7 @@ Computer Networks course project on reproducing UDP packet manipulation and impl
 | 손영준 | Scapy attack packet generation: spoofing, bit modification, retransmission |
 | 이석인 | UDP server and checksum handling |
 | 이성우 | Sequence-number validation and duplicate blocking |
-| 백기헌 | Wireshark capture and result verification |
+| 백기현 | Wireshark capture and result verification |
 | 이현주 | Integration, report, slides, and presentation |
 
 ## Schedule
