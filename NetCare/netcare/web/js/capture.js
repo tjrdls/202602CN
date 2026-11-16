@@ -17,10 +17,12 @@ export async function openCaptureModal(tab) {
     let ifs = [];
     try { ifs = (await api("/api/interfaces")).interfaces; } catch (e) { toast(e.message, true); }
     const cur = (S.status && S.status.config.interface) || (ifs.find((i) => i.is_default) || {}).name;
+    const adminHint = S.status?.platform === "Windows" && !S.status?.is_admin
+      ? `<div class="box box-gray">Windows 실시간 캡처는 Npcap과 관리자 권한이 필요해요. NetCare를 관리자 권한으로 다시 실행해 주세요.</div>` : "";
     body = `<p class="card-sub">어떤 네트워크를 살펴볼까요? 보통 <b>추천</b> 표시된 것을 고르면 돼요.</p>
-      <div class="iface-list">${ifs.map((i) => `<label class="iface ${i.name === cur ? "sel" : ""}"><input type="radio" name="iface" value="${esc(i.name)}" ${i.name === cur ? "checked" : ""}>
-        <div style="flex:1;min-width:0"><div class="if-name">${esc(i.description || i.name)} <span class="sub-ip">${esc(i.name)}</span> ${i.is_default ? `<span class="sev-badge s-good">추천</span>` : ""} ${!i.is_up ? `<span class="sev-badge s-info">꺼짐</span>` : ""}</div>
-        <div class="if-meta">${esc(i.ipv4.join(", ") || "IPv4 없음")}${i.mac ? " · " + esc(i.mac) : ""}</div></div></label>`).join("")}</div>
+      ${adminHint}<div class="iface-list">${ifs.map((i) => { const available = i.capture_available !== false; return `<label class="iface ${i.name === cur && available ? "sel" : ""}"><input type="radio" name="iface" value="${esc(i.name)}" ${i.name === cur && available ? "checked" : ""} ${available ? "" : "disabled"}>
+        <div style="flex:1;min-width:0"><div class="if-name">${esc(i.description || i.name)} <span class="sub-ip">${esc(i.name)}</span> ${i.is_default ? `<span class="sev-badge s-good">추천</span>` : ""} ${!i.is_up ? `<span class="sev-badge s-info">꺼짐</span>` : ""} ${!available ? `<span class="sev-badge s-info">캡처 권한 필요</span>` : ""}</div>
+        <div class="if-meta">${esc(i.ipv4.join(", ") || "IPv4 없음")}${i.mac ? " · " + esc(i.mac) : ""}</div></div></label>`; }).join("")}</div>
       <div class="form-row mt"><label>캡처 필터 (선택)</label><input class="input mono" id="bpf" placeholder="예: tcp port 443, udp, host 192.168.0.1" value="${esc((S.status && S.status.config.bpf_filter) || "")}">
         <div class="hint">비워 두면 모든 패킷을 수집해요. BPF 문법을 사용하며 잘못된 문법은 시작 전에 알려드려요.</div></div>
       <div class="box box-gray">🔒 내가 관리하는 네트워크에서만 사용해 주세요. NetCare는 패킷을 읽기만 하고, 사용자가 승인하지 않으면 아무 설정도 바꾸지 않아요.</div>
@@ -38,7 +40,7 @@ export async function openCaptureModal(tab) {
   }
   modal(`<h3>네트워크 살펴보기</h3>${tabs}${body}`, false);
   $$(".source-tabs button").forEach((b) => b.onclick = () => openCaptureModal(b.dataset.t));
-  $$(".iface").forEach((l) => l.onclick = () => { $$(".iface").forEach((x) => x.classList.remove("sel")); l.classList.add("sel"); });
+  $$(".iface").forEach((l) => l.onclick = () => { if (l.querySelector("input")?.disabled) return; $$(".iface").forEach((x) => x.classList.remove("sel")); l.classList.add("sel"); });
   const sl = $("#startLive");
   if (sl) sl.onclick = async () => {
     const iface = ($("input[name=iface]:checked") || {}).value;

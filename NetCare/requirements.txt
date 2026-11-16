@@ -10,3 +10,5 @@ psutil>=5.9         # 인터페이스 정보·프로세스 확인
 # 테스트
 pytest>=8.0
 httpx>=0.27
+httpx2>=2.0
+websockets>=12

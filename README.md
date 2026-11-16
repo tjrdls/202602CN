@@ -1,37 +1,26 @@
-# UDP Packet Manipulation and Defense Socket Project
+# NetCare
 
-Computer Networks course project on reproducing UDP packet manipulation and implementing a defensive socket server.
+초보자 친화형 실시간 네트워크 패킷 분석 및 자동 문제 해결 시스템입니다. 패킷을 수집·분석해 이상 징후를 설명하고, 사용자 승인 후 조치와 검증·되돌리기를 지원합니다. 실제 네트워크에 영향을 주지 않는 가상 공격 실험실도 포함합니다.
 
-## NetCare (implementation)
+## 실행
 
-The [`NetCare/`](NetCare/) folder contains **NetCare**, a beginner-friendly real-time network packet analysis and troubleshooting system with a built-in virtual attack lab (Simulation Lab).
-See [NetCare/README.md](NetCare/README.md) (Korean) for how it works, the system architecture, the 22 detection rules, and the attack lab.
+Python 3.10 이상이 필요합니다.
 
 ```bash
 cd NetCare
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python run.py   # opens http://127.0.0.1:8765
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python run.py
 ```
 
-## Presentation
+서버는 기본적으로 `http://127.0.0.1:8765`에서 실행됩니다. 실시간 캡처는 운영체제별 권한과 Windows의 경우 Npcap 설치가 필요합니다. 캡처 권한이 없어도 pcap 파일 분석, 테스트 데이터, 가상 실험실을 사용할 수 있습니다.
 
-`UDP_Packet_Defense_Project.pptx` contains the project purpose, UDP concepts, attack packet cases, defense layers, analysis plan, team assignments, and four-week schedule.
+## 문서
 
-## Team assignments
+- [설치·사용법·시스템 구조](NetCare/README.md)
+- [테스트 및 실험 결과](NetCare/docs/02_테스트_결과.md)
+- [고도화 및 남은 과제](NetCare/docs/06_고도화_계획.md)
 
-| Member | Responsibility |
-| --- | --- |
-| 손영준 | Scapy attack packet generation: spoofing, bit modification, retransmission |
-| 이석인 | UDP server and checksum handling |
-| 이성우 | Sequence-number validation and duplicate blocking |
-| 백기현 | Wireshark capture and result verification |
-| 이현주 | Integration, report, slides, and presentation |
+## 저장소 구성
 
-## Schedule
-
-1. Week 1: Step 1, Scapy packet generation
-2. Week 2: Step 2, UDP server implementation
-3. Week 3: Step 3, defense and packet analysis
-4. Week 4: Integration, presentation, and final tests
-
-The deck distinguishes OS-level UDP checksum handling from application-level sequence checks: a regular UDP socket may never receive a datagram whose checksum the OS rejected.
+구현과 관련 자료는 [`NetCare/`](NetCare/)에 있습니다. 실행 중 생성되는 DB·설정·pcap 데이터는 로컬 `data/`에 저장됩니다.

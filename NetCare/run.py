@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import platform
 import sys
 import threading
 import webbrowser
+from pathlib import Path
+
+_NPCAP_DLL_DIR = None
 
 if sys.version_info < (3, 10):
     sys.exit("NetCare 는 Python 3.10 이상이 필요해요.")
@@ -32,12 +36,36 @@ def check_capture_permission() -> str | None:
             return "Linux 에서는 root 또는 CAP_NET_RAW 권한이 있어야 캡처할 수 있어요. 권한이 없으면 캡처 시작 시 안내가 나와요."
         elif system == "Windows":
             try:
+                from scapy.all import conf
                 from scapy.arch.windows import get_windows_if_list  # noqa: F401
             except Exception:
                 return "Windows 에서는 Npcap(https://npcap.com) 설치가 필요해요."
+            if not conf.use_pcap:
+                return "Npcap을 찾지 못했어요. 설치 상태를 확인하고 NetCare를 다시 시작해 주세요."
+            try:
+                from netcare.remediation.system import is_admin
+                if not is_admin():
+                    return "Windows 실시간 캡처는 관리자 권한이 필요해요. NetCare를 '관리자 권한으로 실행'해 주세요."
+            except Exception:
+                return "Windows 실시간 캡처 권한을 확인할 수 없어요. NetCare를 관리자 권한으로 실행해 주세요."
     except Exception:
         return None
     return None
+
+
+def prepare_windows_capture() -> None:
+    """Npcap DLL 경로를 Scapy를 불러오기 전에 현재 프로세스에 등록한다."""
+    global _NPCAP_DLL_DIR
+    if platform.system() != "Windows":
+        return
+    npcap_dir = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "Npcap"
+    if not (npcap_dir / "wpcap.dll").exists():
+        return
+    path_entries = os.environ.get("PATH", "").split(os.pathsep)
+    if str(npcap_dir).casefold() not in {entry.casefold() for entry in path_entries}:
+        os.environ["PATH"] = str(npcap_dir) + os.pathsep + os.environ.get("PATH", "")
+    if hasattr(os, "add_dll_directory"):
+        _NPCAP_DLL_DIR = os.add_dll_directory(str(npcap_dir))
 
 
 def main():
@@ -51,6 +79,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+    prepare_windows_capture()
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         print("⚠️  127.0.0.1 이외의 주소에 연결하면 같은 네트워크의 다른 사람이 방화벽 조치 API 에 접근할 수 있어요. "
               "NetCare 는 로컬 전용으로 설계되었기 때문에 Host 검사로 외부 요청을 거부합니다.")

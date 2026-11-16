@@ -35,6 +35,27 @@ function pkRow(r) {
 export function renderPackets() {
   const rows = S.pk.rows, P = S.pk;
   $("#pkEmpty").classList.toggle("hidden", rows.length > 0);
+  if (!rows.length) {
+    const session = S.status && S.status.session;
+    const live = S.status && S.status.state === "capturing" && session && session.source === "live";
+    const hasFilter = Boolean(P.proto || P.q || P.ip || (P.port !== "" && P.port != null));
+    let title = "아직 패킷이 없어요", hint = "오른쪽 위 ‘캡처 시작’을 눌러 보세요.";
+    if (live && P.paused) {
+      title = "패킷 표시가 일시정지됐어요"; hint = "계속 보려면 ‘계속’ 버튼을 눌러 주세요.";
+    } else if (live && hasFilter) {
+      title = "현재 필터와 일치하는 패킷이 없어요"; hint = "캡처는 진행 중이에요. 필터를 지우거나 조건에 맞는 패킷이 올 때까지 기다려 주세요.";
+    } else if (live) {
+      title = "캡처 중이에요"; hint = "패킷이 관찰되면 이 목록에 표시돼요.";
+    } else if (P.mode === "paged") {
+      title = "조건에 맞는 패킷이 없어요"; hint = "필터를 바꾸거나 실시간 보기로 돌아가 보세요.";
+    } else if (session && session.source === "pcap") {
+      title = "표시할 패킷이 없어요"; hint = "파일 분석이 끝났거나 파일에서 패킷을 찾지 못했어요.";
+    } else if (session && session.source === "test") {
+      title = "테스트 패킷을 기다리는 중이에요"; hint = "테스트 데이터가 생성되면 이 목록에 표시돼요.";
+    }
+    $("#pkEmptyTitle").textContent = title;
+    $("#pkEmptyHint").textContent = hint;
+  }
   $("#pkBody").innerHTML = rows.map(pkRow).join("");
   const filt = [P.proto && P.proto, P.q && `"${P.q}"`, P.ip && `IP ${P.ip}`, P.port && `포트 ${P.port}`].filter(Boolean);
   if (P.mode === "paged") {

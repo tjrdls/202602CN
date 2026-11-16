@@ -66,11 +66,13 @@ def list_interfaces() -> list[dict]:
     default_iface, _ = default_route()
     addrs = psutil.net_if_addrs()
     stats = psutil.net_if_stats()
+    can_check_capture = True
     try:
         from scapy.all import get_if_list
         scapy_names = set(get_if_list())
     except Exception:
-        scapy_names = set(addrs)
+        scapy_names = set() if SYSTEM == "Windows" else set(addrs)
+        can_check_capture = SYSTEM != "Windows"
     result = []
     for name, alist in addrs.items():
         if scapy_names and name not in scapy_names and SYSTEM != "Windows":
@@ -79,8 +81,10 @@ def list_interfaces() -> list[dict]:
         ipv6 = [a.address.split("%")[0] for a in alist if a.family == socket.AF_INET6]
         mac = next((a.address for a in alist if a.family == psutil.AF_LINK), None)
         st = stats.get(name)
+        capture_iface = capture_name(name)
         result.append({
             "name": name,
+            "capture_available": (capture_iface in scapy_names) if can_check_capture else False,
             "description": _guess_desc(name),
             "ipv4": ipv4, "ipv6": ipv6, "mac": mac,
             "is_up": bool(st and st.isup),
@@ -90,6 +94,21 @@ def list_interfaces() -> list[dict]:
     # 기본 경로 → IPv4 보유 & 활성 → 나머지 순
     result.sort(key=lambda r: (not r["is_default"], not (r["is_up"] and r["ipv4"]), r["name"]))
     return result
+
+
+def capture_name(name: str) -> str:
+    """화면에 보이는 Windows 어댑터 이름을 Scapy/Npcap 장치 이름으로 변환한다."""
+    if SYSTEM != "Windows" or name.startswith(r"\Device\NPF_"):
+        return name
+    if name == "Loopback Pseudo-Interface 1":
+        return r"\Device\NPF_Loopback"
+    try:
+        from scapy.arch.windows import get_windows_if_list
+        adapter = next((item for item in get_windows_if_list() if item.get("name") == name), None)
+        guid = str((adapter or {}).get("guid", "")).strip("{}")
+        return rf"\Device\NPF_{{{guid}}}" if guid else name
+    except Exception:
+        return name
 
 
 def local_addresses(iface: str | None = None) -> tuple[set[str], set[str]]:

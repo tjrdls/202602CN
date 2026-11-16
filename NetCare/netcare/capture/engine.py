@@ -140,19 +140,26 @@ class Engine:
         from scapy.arch.common import compile_filter
         if not iface:
             raise CaptureError("캡처할 네트워크 인터페이스를 선택해 주세요.", "no_iface")
-        if iface not in get_if_list():
+        capture_iface = interfaces.capture_name(iface)
+        if capture_iface not in get_if_list():
+            import platform
+            if platform.system() == "Windows":
+                raise CaptureError(
+                    f"'{iface}' 캡처 장치를 찾을 수 없어요.", "no_iface",
+                    "Npcap 드라이버에 접근할 수 없습니다. Npcap 설치 상태를 확인하고 NetCare를 관리자 권한으로 다시 실행해 주세요.",
+                )
             raise CaptureError(f"'{iface}' 인터페이스를 찾을 수 없어요.", "no_iface")
         bpf = (bpf or "").strip()
         if bpf:
             try:
-                compile_filter(bpf, iface=iface)
+                compile_filter(bpf, iface=capture_iface)
             except Exception as e:
                 raise CaptureError(f"캡처 필터 문법이 올바르지 않아요: {bpf}", "bad_filter",
                                    "예시: 'tcp port 443', 'udp', 'host 192.168.0.1', 'not port 22'. 자세한 오류: " + str(e)[:200])
         sess = self._begin("live", iface, bpf, f"{iface} 실시간 캡처")
         try:
             def _open(promisc: bool):
-                x = AsyncSniffer(iface=iface, filter=bpf or None, prn=self._enqueue_live, store=False, promisc=promisc)
+                x = AsyncSniffer(iface=capture_iface, filter=bpf or None, prn=self._enqueue_live, store=False, promisc=promisc)
                 x.start()
                 time.sleep(0.3)
                 if x.exception is not None:
