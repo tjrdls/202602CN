@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetCare UI Kit (개발용)</title>
+  <script>(function(){try{var p=localStorage.getItem("nc.theme")||"auto";var d=p==="dark"||(p==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";}catch(e){}})();</script>
+  <link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/components.css"><link rel="stylesheet" href="/static/css/app.css">
+  <style>.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}.sw div{border-radius:10px;padding:10px;font-size:11px;border:1px solid var(--border)}.sw b{display:block;height:34px;border-radius:7px;margin-bottom:6px}.demo{display:flex;gap:8px;flex-wrap:wrap;align-items:center}</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner"><div class="logo"><div class="logo-mark"></div><span class="txt">NetCare UI Kit</span></div><div class="grow"></div><button class="btn btn-secondary btn-sm" onclick="(function(){var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark';})()">테마 전환</button></div></header>
+<main>
+  <div class="view-head"><div><h2 class="view-title">디자인 시스템 미리보기</h2><p class="view-sub">tokens.css · components.css 의 모든 요소를 한 화면에서 확인해요. (개발용, 실제 데이터 없음)</p></div></div>
+  <div class="card"><div class="card-title">의미 색</div><div class="card-sub">색은 장식이 아니라 상태를 전달해요</div>
+    <div class="sw">
+      <div><b style="background:var(--primary)"></b>primary · 동작/브랜드</div><div><b style="background:var(--ok)"></b>ok · 정상</div><div><b style="background:var(--warn)"></b>warn · 주의</div>
+      <div><b style="background:var(--crit)"></b>crit · 위험</div><div><b style="background:var(--info)"></b>info · 정보</div><div><b style="background:var(--sim)"></b>sim · 시뮬레이션</div>
+      <div><b style="background:var(--bg)"></b>bg</div><div><b style="background:var(--surface)"></b>surface</div><div><b style="background:var(--surface-2)"></b>surface-2</div><div><b style="background:var(--border)"></b>border</div>
+      <div><b style="background:var(--text-1)"></b>text-1</div><div><b style="background:var(--text-2)"></b>text-2</div><div><b style="background:var(--text-3)"></b>text-3</div>
+    </div></div>
+  <div class="card mt"><div class="card-title">버튼</div>
+    <div class="demo"><button class="btn btn-primary">기본 동작</button><button class="btn btn-secondary">보조</button><button class="btn btn-outline">외곽선</button><button class="btn btn-ghost">고스트</button><button class="btn btn-tonal">톤</button><button class="btn btn-tonal-ok">톤 · 정상</button><button class="btn btn-danger">위험 동작</button><button class="btn btn-sim">시뮬레이션</button><button class="btn btn-primary" disabled>비활성</button></div>
+    <div class="demo mt"><button class="btn btn-primary btn-sm">작게</button><button class="btn btn-secondary btn-sm">작게</button><button class="btn btn-primary btn-lg">크게</button><button class="icon-btn">⚙</button><button class="icon-btn on">⚙</button><span class="kbd">Esc</span></div></div>
+  <div class="card mt"><div class="card-title">배지·칩·상태</div>
+    <div class="demo"><span class="sev-badge s-danger">위험</span><span class="sev-badge s-warning">주의</span><span class="sev-badge s-info">정보</span><span class="sev-badge s-good">정상</span><span class="sev-badge b-info">안내</span><span class="sev-badge b-primary">기본</span><span class="sev-badge s-test">테스트 데이터</span><span class="sev-badge s-sim">시뮬레이션</span><span class="sev-badge s-pcap">파일 분석</span>
+      <span class="tag tag-change">설정 변경</span><span class="tag tag-safe">안전</span><span class="tag tag-admin">관리자</span><span class="proto p-TCP">TCP</span><span class="proto p-UDP">UDP</span><span class="proto p-ICMP">ICMP</span><span class="proto p-ARP">ARP</span></div>
+    <div class="demo mt"><span class="status-pill s-good">실시간 캡처 · en0</span><span class="status-pill s-info">캡처 멈춤</span><span class="status-pill s-test">테스트 데이터</span><div class="chips"><button class="chip on">전체</button><button class="chip">TCP</button><button class="chip">UDP</button></div><div class="seg"><button class="on">패킷 수</button><button>사용량</button></div></div></div>
+  <div class="grid g-3 mt">
+    <div class="card kpi"><div class="kpi-label">초당 패킷</div><div class="kpi-value">1,284<small>개/초</small></div><div class="kpi-foot">최근 5초 평균</div></div>
+    <div class="card kpi"><div class="kpi-label">다운로드</div><div class="kpi-value wait">대기 중</div><div class="kpi-foot">캡처를 시작하면 측정돼요</div></div>
+    <div class="card kpi link"><div class="kpi-label">이상 징후</div><div class="kpi-value sev-text-danger">3<small>건</small></div><div class="kpi-foot">진행 중 2건 · 위험 1</div></div>
+  </div>
+  <div class="grid g-2 mt">
+    <div class="card"><div class="card-title">표</div><div class="table-wrap"><table class="pk"><thead><tr><th>시간</th><th class="sortable asc">보내는 장치</th><th>종류</th><th class="num">크기</th></tr></thead><tbody>
+      <tr data-id="1"><td class="mono">12:00:01</td><td>내 컴퓨터 → github.com</td><td><span class="proto p-TCP">HTTPS</span></td><td class="num">1.2 KB</td></tr>
+      <tr data-id="2" class="sel"><td class="mono">12:00:02</td><td>공유기 → 내 컴퓨터</td><td><span class="proto p-UDP">DNS</span></td><td class="num">98 B</td></tr>
+      <tr data-id="3"><td class="mono">12:00:03</td><td>192.0.2.10 → 내 컴퓨터</td><td><span class="proto p-ICMP">ICMP</span></td><td class="num">64 B</td></tr></tbody></table></div>
+      <div class="table-foot"><span>3개 표시 중</span><div class="pager"><button class="btn btn-ghost btn-sm">‹</button><span>1 / 4</span><button class="btn btn-ghost btn-sm">›</button></div></div></div>
+    <div class="card"><div class="card-title">박스·배너</div>
+      <div class="banner info"><div class="banner-body"><b>안내</b>아직 캡처를 시작하지 않았어요.</div></div>
+      <div class="banner warn"><div class="banner-body"><b>주의</b>패킷 120개를 놓쳤어요.</div></div>
+      <div class="banner error"><div class="banner-body"><b>오류</b>서버와 연결이 끊겼어요.</div></div>
+      <div class="banner sim"><div class="banner-body"><b>합성 데이터</b>실험실 결과예요.</div></div>
+      <div class="box box-gray"><b>무엇을 하나요?</b>DNS 캐시를 비워요.</div><div class="callout"><b>💡 정상일 수도 있어요</b>대용량 다운로드일 수 있어요.</div>
+      <div class="error-box mt"><b>불러오지 못했어요</b>잠시 후 다시 시도해 주세요.</div></div>
+  </div>
+  <div class="grid g-3 mt">
+    <div class="card"><div class="card-title">빈 상태</div><div class="empty"><div class="empty-icon">📡</div><div class="empty-title">아직 패킷이 없어요</div>캡처 시작을 눌러 보세요.</div></div>
+    <div class="card"><div class="card-title">로딩</div><div class="loading">불러오는 중…</div><div class="skeleton" style="height:14px;margin:8px 0"></div><div class="skeleton" style="height:14px;width:60%"></div></div>
+    <div class="card"><div class="card-title">폼</div><div class="form-row"><label>캡처 필터</label><input class="input" placeholder="tcp port 443"><div class="hint">BPF 문법</div></div><label class="switch"><span>자동 차단</span><input type="checkbox"></label><label class="check"><input type="checkbox"> 이해했어요</label><div class="progress"><div style="width:40%"></div></div></div>
+  </div>
+  <div class="card mt"><div class="card-title">이상 징후 항목·게이지</div>
+    <div class="issues-layout"><div class="issue-list">
+      <div class="issue-item sev-danger sel"><div class="it-title">🔁 새로운 연결 요청이 평소보다 많아졌어요</div><div class="it-meta"><span class="sev-badge s-danger">위험</span><span>진행 중</span>·<span>방금</span></div></div>
+      <div class="issue-item sev-warning"><div class="it-title">🧭 도메인 조회가 자주 실패해요</div><div class="it-meta"><span class="sev-badge s-warning">주의</span><span>멈춤</span>·<span>3분 전</span></div></div>
+      <div class="issue-item sev-info"><div class="it-title">🎯 HTTPS 포트에 통신이 몰려요</div><div class="it-meta"><span class="sev-badge s-info">정보</span></div></div></div>
+      <div><div class="gauge"><div style="font-size:var(--fs-sm)"><b>탐지 기준</b> · 10초 동안 SYN 60개 이상 & 완료율 30% 미만</div><div class="gauge-bar"><div class="gauge-fill sev-danger" style="width:80%"></div><div class="gauge-mark" style="left:2%"><span>기준 60</span></div></div><div class="gauge-legend"><span>실제 측정값 <b class="sev-text-danger">2,500</b></span><span>기준 대비 41.7배</span></div></div>
+      <div class="metric-grid mt"><div class="metric"><div class="k">Precision</div><div class="v">100%</div></div><div class="metric"><div class="k">Recall</div><div class="v">82.8%</div></div><div class="metric"><div class="k">F1</div><div class="v">90.6%</div></div><div class="metric"><div class="k">FPR</div><div class="v">0%</div></div></div></div></div></div>
+</main>
+</body>
+</html>

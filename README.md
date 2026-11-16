@@ -2,6 +2,17 @@
 
 Computer Networks course project on reproducing UDP packet manipulation and implementing a defensive socket server.
 
+## NetCare (implementation)
+
+The [`NetCare/`](NetCare/) folder contains **NetCare**, a beginner-friendly real-time network packet analysis and troubleshooting system with a built-in virtual attack lab (Simulation Lab).
+See [NetCare/README.md](NetCare/README.md) (Korean) for how it works, the system architecture, the 22 detection rules, and the attack lab.
+
+```bash
+cd NetCare
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python run.py   # opens http://127.0.0.1:8765
+```
+
 ## Presentation
 
 `UDP_Packet_Defense_Project.pptx` contains the project purpose, UDP concepts, attack packet cases, defense layers, analysis plan, team assignments, and four-week schedule.

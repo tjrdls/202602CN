@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>NetCare · 내 네트워크 지킴이</title>
+  <script>
+    /* 첫 그리기 전에 테마를 정해 깜빡임을 막는다. 설정: localStorage nc.theme = auto | light | dark */
+    (function () {
+      try {
+        var p = localStorage.getItem("nc.theme") || "auto";
+        var dark = p === "dark" || (p === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) { /* 저장소 접근 불가 시 라이트 */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/vendor/plotly.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="logo">
+      <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+      <span class="txt">NetCare</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-view="home">홈</button>
+      <button class="tab" data-view="packets">패킷 분석</button>
+      <button class="tab" data-view="issues">문제 해결<span class="tab-badge hidden" id="issueBadge">0</span></button>
+      <button class="tab" data-view="report">리포트</button>
+      <button class="tab" data-view="lab">실험실</button>
+    </nav>
+    <div class="top-actions">
+      <span id="sourceBadge" class="status-pill s-info hidden"></span>
+      <button class="icon-btn" id="searchBtn" title="검색 (⌘K / Ctrl+K)" aria-label="검색">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="다크 모드로" aria-label="테마 전환">
+        <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg id="themeIconSun" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="icon-btn" id="expertBtn" title="전문가 모드: 원본 헤더 이름과 상세 값을 보여줘요" aria-label="전문가 모드">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" title="설정" aria-label="설정">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="btn btn-primary capture-btn" id="captureBtn"><span class="dot"></span><span id="captureBtnText">캡처 시작</span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="banners"></div>
+
+  <!-- 홈 -->
+  <section id="view-home" class="view">
+    <div class="grid g-hero">
+      <div class="card hero" id="heroCard">
+        <div class="ring">
+          <svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="11"/>
+            <circle class="bar" id="ringBar" cx="60" cy="60" r="52" fill="none" stroke-width="11" stroke="var(--ok)" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg>
+          <div class="ring-label"><div class="ring-score" id="score">-</div><div class="ring-unit">/ 100점</div></div>
+        </div>
+        <div class="hero-headline" id="headline">상태를 확인하고 있어요</div>
+        <div class="hero-sub" id="heroSub"></div>
+        <button class="link-btn" id="whyBtn">접기</button>
+        <div class="why-list" id="whyList"></div>
+      </div>
+      <div>
+        <div class="grid g-3">
+          <div class="card kpi"><div class="kpi-label">초당 패킷</div><div class="kpi-value" id="kPps">0</div><div class="kpi-foot">최근 5초 평균 (PPS)</div></div>
+          <div class="card kpi"><div class="kpi-label"><span class="sev-text-ok">↓</span> 다운로드</div><div class="kpi-value" id="kDown">0 bps</div><div class="kpi-foot">내 컴퓨터로 들어오는 속도</div></div>
+          <div class="card kpi"><div class="kpi-label"><span style="color:var(--primary-text)">↑</span> 업로드</div><div class="kpi-value" id="kUp">0 bps</div><div class="kpi-foot">내 컴퓨터에서 나가는 속도</div></div>
+          <div class="card kpi"><div class="kpi-label">총 패킷</div><div class="kpi-value" id="kTotal">0</div><div class="kpi-foot" id="kTotalFoot">이번 세션</div></div>
+          <div class="card kpi"><div class="kpi-label">전체 전송량</div><div class="kpi-value" id="kBytes">0 B</div><div class="kpi-foot" id="kBytesFoot"></div></div>
+          <div class="card kpi link" onclick="App.go('issues')"><div class="kpi-label">이상 징후</div><div class="kpi-value" id="kAnom">0</div><div class="kpi-foot" id="kAnomFoot">진행 중 0건</div></div>
+        </div>
+        <div class="card mt">
+          <div class="card-head">
+            <div><div class="card-title">실시간 트래픽</div><div class="card-sub">최근 2분, 1초 단위 · 실제 캡처된 패킷으로 계산해요</div></div>
+            <div class="seg" id="trafficSeg"><button class="on" data-k="packets">패킷 수</button><button data-k="bytes">사용량</button><button data-k="updown">업·다운로드</button></div>
+          </div>
+          <div class="chart" id="chTraffic"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g-3 mt">
+      <div class="card"><div class="card-title">프로토콜별 비율</div><div class="card-sub">어떤 방식으로 통신하는지 (패킷 수 기준)</div><div class="chart sm" id="chProto"></div></div>
+      <div class="card"><div class="card-title">많이 통신한 장치</div><div class="card-sub">IP별 통신량 Top 8 (보낸+받은 바이트)</div><div class="chart sm" id="chIp"></div></div>
+      <div class="card"><div class="card-title">많이 쓰인 서비스</div><div class="card-sub">포트별 통신량 Top 8</div><div class="chart sm" id="chPort"></div></div>
+    </div>
+
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-head"><div><div class="card-title">최근 탐지 이벤트</div><div class="card-sub">이번 세션과 연결 점검에서 나온 이상 징후</div></div><button class="btn btn-ghost btn-sm" onclick="App.go('issues')">모두 보기</button></div><ul class="list-plain" id="recentAnoms"></ul></div>
+      <div class="card"><div class="card-title">최근 네트워크 활동</div><div class="card-sub">탐지·조치·캡처 기록</div><ul class="feed" id="feed"></ul></div>
+    </div>
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-head"><div><div class="card-title">주요 통신 장치</div><div class="card-sub">보낸+받은 데이터 기준 · 누르면 장치 상세</div></div></div><ul class="list-plain" id="peerList"></ul></div>
+      <div class="card">
+        <div class="card-title">세부 통계</div><div class="card-sub">이번 세션에서 실제로 측정한 값</div>
+        <div class="stat-list" id="statList"></div>
+        <div class="card-sub" style="margin-top:14px" id="probeLine"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 패킷 -->
+  <section id="view-packets" class="view hidden">
+    <div class="view-head"><div><h2 class="view-title">실시간 패킷 분석</h2><p class="view-sub">패킷을 누르면 계층별 헤더를 자세히 볼 수 있어요. 열 제목을 누르면 정렬돼요.</p></div></div>
+    <div class="packets-layout" id="pkLayout">
+      <div class="card">
+        <div class="toolbar">
+          <div class="chips" id="pkChips">
+            <button class="chip on" data-p="">전체</button><button class="chip" data-p="TCP">TCP</button><button class="chip" data-p="UDP">UDP</button>
+            <button class="chip" data-p="ICMP">ICMP</button><button class="chip" data-p="DNS">DNS</button><button class="chip" data-p="WEB">웹</button>
+          </div>
+          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="pkSearch" placeholder="IP, 포트, 서비스, 설명으로 검색  ( / )"></div>
+          <button class="btn btn-secondary btn-sm" id="pkPause">⏸ 일시정지</button>
+        </div>
+        <div class="filter-bar">
+          <input class="input sm" id="pkIp" placeholder="IP (출발지 또는 목적지)"><input class="input sm port" id="pkPort" type="number" min="0" max="65535" placeholder="포트">
+          <button class="btn btn-ghost btn-sm" id="pkClear">필터 지우기</button>
+          <span class="mode-note hidden" id="pkModeNote">정렬·페이지 보기 중에는 실시간 갱신이 멈춰요 · <a href="#" id="pkLiveBack" style="color:inherit">실시간 보기로</a></span>
+        </div>
+        <div class="table-wrap pk-wrap"><table class="pk"><thead id="pkHead"></thead><tbody id="pkBody"></tbody></table>
+          <div class="empty hidden" id="pkEmpty"><div class="empty-icon">📡</div><div class="empty-title">아직 패킷이 없어요</div>오른쪽 위 <b>캡처 시작</b>을 눌러 보세요.</div></div>
+        <div class="table-foot"><span id="pkInfo"></span><div class="row"><div class="pager hidden" id="pkPager"></div><button class="btn btn-ghost btn-sm" id="pkMore">이전 패킷 더 보기</button></div></div>
+      </div>
+      <aside class="card hidden" id="pkDetail"></aside>
+    </div>
+  </section>
+
+  <!-- 문제 해결 -->
+  <section id="view-issues" class="view hidden">
+    <div class="view-head"><div><h2 class="view-title">이상 탐지 및 문제 해결</h2><p class="view-sub">평소와 다른 통신을 찾아서, 원인과 해결 방법을 쉽게 알려드려요.</p></div><button class="btn btn-outline btn-sm" id="rulesBtn">📐 탐지 규칙 보기</button></div>
+    <div class="issues-layout">
+      <div>
+        <div class="chips" id="isChips" style="margin-bottom:10px">
+          <button class="chip on" data-s="open">확인 필요</button><button class="chip" data-s="">전체</button>
+          <button class="chip" data-s="resolved">조치 완료</button><button class="chip" data-s="dismissed">정상 처리</button>
+        </div>
+        <div class="issue-list" id="issueList"></div>
+      </div>
+      <div class="card" id="issueDetail"><div class="empty"><div class="empty-icon">🛡️</div><div class="empty-title">왼쪽에서 이상 징후를 선택하세요</div></div></div>
+    </div>
+  </section>
+
+  <!-- 리포트 -->
+  <section id="view-report" class="view hidden">
+    <div class="view-head"><div><h2 class="view-title">네트워크 리포트</h2><p class="view-sub">저장된 기록으로 기간별 사용량과 이상 탐지 이력을 정리해요.</p></div></div>
+    <div class="card tight">
+      <div class="toolbar" style="margin-bottom:0">
+        <div class="seg" id="rpSeg"><button data-d="1">오늘</button><button class="on" data-d="7">7일</button><button data-d="30">30일</button><button data-d="90">90일</button><button data-d="custom">직접 선택</button></div>
+        <span class="date-range hidden" id="rpRange"><input type="date" id="rpStart"> ~ <input type="date" id="rpEnd"><button class="btn btn-secondary btn-sm" id="rpApply">적용</button></span>
+        <label class="check" style="margin:0"><input type="checkbox" id="rpTest"> 테스트·파일 데이터 포함</label>
+        <div class="grow"></div>
+        <button class="btn btn-secondary btn-sm" id="rpCsv">CSV 내보내기</button>
+        <button class="btn btn-primary btn-sm" id="rpPdf">PDF 리포트 저장</button>
+      </div>
+    </div>
+    <div class="kpi-row mt" id="rpKpis"></div>
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-title">일별 네트워크 사용량</div><div class="card-sub">다운로드·업로드 (분 단위 집계 기반)</div><div class="chart" id="rpDaily"></div></div>
+      <div class="card"><div class="card-title">네트워크 상태 변화</div><div class="card-sub">종합 점수 기록 (30초마다 저장)</div><div class="chart" id="rpHealth"></div></div>
+    </div>
+    <div class="grid g-3 mt">
+      <div class="card"><div class="card-title">프로토콜별 비율</div><div class="chart sm" id="rpProto"></div></div>
+      <div class="card"><div class="card-title">IP별 트래픽</div><div class="seg" id="rpIpSeg" style="margin:6px 0"><button class="on" data-k="top_src">보낸 장치</button><button data-k="top_dst">받은 장치</button></div><div class="chart sm" id="rpIp"></div></div>
+      <div class="card"><div class="card-title">포트별 트래픽</div><div class="chart sm" id="rpPort"></div></div>
+    </div>
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-title">위험 수준별 이벤트</div><div class="card-sub">기간 내 탐지된 이상 징후의 등급·상태 분포</div><div class="chart sm" id="rpSev"></div></div>
+      <div class="card"><div class="card-title">탐지 · 대응 결과</div><div class="card-sub" id="rpActSub">기간 내 실행한 조치와 검증 결과</div><div class="table-wrap" style="max-height:220px"><table class="pk" id="rpActions"></table></div></div>
+    </div>
+    <div class="card mt"><div class="card-title">이상 탐지 이력</div><div class="card-sub" id="rpAnomSub"></div><div class="table-wrap"><table class="pk" id="rpAnom"></table></div></div>
+    <div class="card mt"><div class="card-head"><div><div class="card-title">실험실 평가 요약 <span class="sev-badge s-sim">합성 데이터</span></div><div class="card-sub">같은 기간에 실행한 가상 실험의 탐지 성능 · 실제 네트워크 성능이 아니에요</div></div><button class="btn btn-ghost btn-sm" onclick="App.go('lab')">실험실로</button></div><div id="rpLab"></div></div>
+  </section>
+
+  <!-- 실험실 (Simulation Lab) -->
+  <section id="view-lab" class="view hidden">
+    <div class="view-head"><div><h2 class="view-title">가상 네트워크 실험실</h2><p class="view-sub">격리된 가상 네트워크에서 공격·장애를 재현하고, NetCare의 탐지·진단·대응을 검증해요.</p></div></div>
+    <div class="banner sim lab-banner"><div class="banner-body"><b>🧪 합성 데이터 실험이에요</b>가상 패킷은 메모리에서만 만들어지고 실제 네트워크로 전송되지 않아요. 실험 기록은 별도 저장소(simlab.db)에 보관되어 홈·리포트의 실제 데이터와 섞이지 않고, 조치도 가상 효과로만 적용돼요. 평가 지표는 <b style="display:inline">합성 데이터 기준</b>이라 실제 환경보다 좋게 나올 수 있어요.</div></div>
+    <div class="seg" id="labSeg" style="margin-bottom:16px"><button class="on" data-p="run">실험하기</button><button data-p="bench">벤치마크</button><button data-p="hist">실험 이력</button></div>
+    <div id="labRunPane">
+      <div id="labCards"></div>
+      <div class="card mt hidden" id="labConfig"></div>
+      <div class="card mt hidden" id="labLive"></div>
+      <div class="card mt hidden" id="labResult"></div>
+    </div>
+    <div id="labBenchPane" class="hidden"></div>
+    <div id="labHistPane" class="hidden"></div>
+  </section>
+</main>
+
+<nav class="bottomnav" id="bottomnav">
+  <button class="active" data-view="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>홈</button>
+  <button data-view="packets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>패킷</button>
+  <button data-view="issues"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>문제 해결</button>
+  <button data-view="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>리포트</button>
+  <button data-view="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2l-6-10V3"/></svg>실험실</button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer"></aside>
+<div class="modal" id="modal"><div class="modal-card" id="modalCard"></div></div>
+<div class="toast-wrap" id="toasts"></div>
+<input type="file" id="pcapInput" accept=".pcap,.pcapng,.cap" class="hidden">
+<script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

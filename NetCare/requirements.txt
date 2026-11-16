@@ -1,0 +1,12 @@
+# NetCare 의존성 (Python 3.10 이상)
+scapy>=2.5          # 패킷 캡처·분석 (libpcap/BPF/Npcap 위에서 동작)
+fastapi>=0.110      # 웹 API 서버
+uvicorn>=0.29       # ASGI 서버
+python-multipart>=0.0.9  # pcap 파일 업로드
+pandas>=2.0         # CSV 내보내기·집계
+plotly>=5.0         # 그래프 (plotly.min.js 를 로컬에서 제공)
+reportlab>=4.0      # PDF 리포트
+psutil>=5.9         # 인터페이스 정보·프로세스 확인
+# 테스트
+pytest>=8.0
+httpx>=0.27
