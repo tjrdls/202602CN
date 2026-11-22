@@ -61,6 +61,25 @@ def default_route() -> tuple[str | None, str | None]:
         return (None, None)
 
 
+def resolve_capture_iface(name: str):
+    """화면에 보이는 인터페이스 이름 → Scapy 캡처에 넘길 값. 찾지 못하면 None.
+
+    macOS·Linux 는 이름이 같지만, Windows 는 화면 이름('Wi-Fi', '이더넷')과
+    Npcap 장치 이름('\\Device\\NPF_{GUID}')이 달라서 변환이 필요하다.
+    """
+    try:
+        from scapy.all import conf, get_if_list
+    except Exception:
+        return None
+    if name in get_if_list():
+        return name
+    for dev in conf.ifaces.values():
+        names = {getattr(dev, "name", None), getattr(dev, "description", None), getattr(dev, "network_name", None)}
+        if name in names:
+            return getattr(dev, "network_name", None) or dev.name
+    return None
+
+
 def list_interfaces() -> list[dict]:
     """psutil 기반 목록 (캡처는 Scapy 이름을 사용, macOS/Linux 에서는 동일)."""
     default_iface, _ = default_route()

@@ -13,7 +13,17 @@ from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = Path(os.environ.get("NETCARE_DATA_DIR", BASE_DIR / "data"))
+
+
+def _default_data_dir() -> Path:
+    # 단일 실행 파일(PyInstaller)은 임시 폴더에서 풀려 실행되므로, 기록은 사용자 폴더에 둔다
+    if getattr(__import__("sys"), "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+        return Path(base) / "NetCare"
+    return BASE_DIR / "data"
+
+
+DATA_DIR = Path(os.environ.get("NETCARE_DATA_DIR") or _default_data_dir())
 
 
 @dataclass

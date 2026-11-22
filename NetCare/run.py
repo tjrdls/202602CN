@@ -41,7 +41,17 @@ def check_capture_permission() -> str | None:
     return None
 
 
+def _utf8_console():
+    """Windows 콘솔(cp949 등)에서 한글·기호 출력 때문에 멈추지 않도록."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+
+
 def main():
+    _utf8_console()
     ap = argparse.ArgumentParser(description="NetCare - 초보자 친화형 네트워크 분석기")
     ap.add_argument("--host", default=os.environ.get("NETCARE_HOST", "127.0.0.1"), help="기본값 127.0.0.1 (보안상 외부 접속을 막아요)")
     ap.add_argument("--port", type=int, default=int(os.environ.get("NETCARE_PORT", "8765")))

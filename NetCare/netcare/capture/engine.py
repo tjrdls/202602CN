@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import platform
 import queue
 import threading
 import time
@@ -136,23 +137,25 @@ class Engine:
             return self.session
 
     def start_live(self, iface: str, bpf: str = "") -> dict:
-        from scapy.all import AsyncSniffer, get_if_list
+        from scapy.all import AsyncSniffer
         from scapy.arch.common import compile_filter
         if not iface:
             raise CaptureError("캡처할 네트워크 인터페이스를 선택해 주세요.", "no_iface")
-        if iface not in get_if_list():
-            raise CaptureError(f"'{iface}' 인터페이스를 찾을 수 없어요.", "no_iface")
+        cap_iface = interfaces.resolve_capture_iface(iface)
+        if cap_iface is None:
+            raise CaptureError(f"'{iface}' 인터페이스를 찾을 수 없어요.", "no_iface",
+                               PERMISSION_HELP.get("Windows", "") if platform.system() == "Windows" else "")
         bpf = (bpf or "").strip()
         if bpf:
             try:
-                compile_filter(bpf, iface=iface)
+                compile_filter(bpf, iface=cap_iface)
             except Exception as e:
                 raise CaptureError(f"캡처 필터 문법이 올바르지 않아요: {bpf}", "bad_filter",
                                    "예시: 'tcp port 443', 'udp', 'host 192.168.0.1', 'not port 22'. 자세한 오류: " + str(e)[:200])
         sess = self._begin("live", iface, bpf, f"{iface} 실시간 캡처")
         try:
             def _open(promisc: bool):
-                x = AsyncSniffer(iface=iface, filter=bpf or None, prn=self._enqueue_live, store=False, promisc=promisc)
+                x = AsyncSniffer(iface=cap_iface, filter=bpf or None, prn=self._enqueue_live, store=False, promisc=promisc)
                 x.start()
                 time.sleep(0.3)
                 if x.exception is not None:
@@ -173,7 +176,6 @@ class Engine:
             self._end_session()
             self.state = "error"
             msg = str(e)
-            import platform
             if isinstance(e, PermissionError) or "ermission" in msg or "Operation not permitted" in msg:
                 self.error = {"message": "패킷을 캡처할 권한이 없어요.", "help": PERMISSION_HELP.get(platform.system(), ""), "code": "permission"}
                 raise CaptureError(self.error["message"], "permission", self.error["help"])

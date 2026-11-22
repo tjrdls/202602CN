@@ -65,6 +65,14 @@ docker run -d --name netcare --network host --cap-add NET_RAW --cap-add NET_ADMI
 - 포트는 반드시 `127.0.0.1:8765:8765`처럼 **127.0.0.1에만** 공개하세요. `-p 8765:8765`로 열면 같은 네트워크의 다른 기기가 접근할 수 있습니다.
 - 기록(DB·설정)은 `/data` 볼륨에 저장되어 컨테이너를 지웠다 다시 만들어도 유지됩니다.
 
+### 방법 C. Windows 실행 파일 (파이썬 설치 불필요)
+
+GitHub Actions가 Windows에서 테스트와 실행 점검을 통과한 `NetCare.exe`를 자동으로 만듭니다. 저장소의 **Actions → NetCare CI → 최근 실행 → Artifacts → NetCare-windows-x64**에서 받거나, `netcare-v*` 태그를 붙인 버전은 **Releases**에서 받습니다.
+
+1. 실시간 캡처를 쓰려면 [Npcap](https://npcap.com)을 먼저 설치합니다 (라이선스상 함께 배포할 수 없음). 설치하지 않아도 파일 분석·테스트 데이터·실험실은 동작합니다.
+2. `NetCare.exe`를 실행하면 브라우저에서 `http://127.0.0.1:8765`가 열립니다. 방화벽 조치까지 쓰려면 "관리자 권한으로 실행"합니다.
+3. 기록은 `%LOCALAPPDATA%\NetCare`에 저장됩니다.
+
 ### 방법 B. 파이썬으로 직접 실행 (macOS·Windows 실시간 캡처, 개발용)
 
 Python 3.10 이상이 필요합니다.
