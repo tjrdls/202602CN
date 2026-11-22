@@ -113,6 +113,13 @@
   <!-- 패킷 -->
   <section id="view-packets" class="view hidden">
     <div class="view-head"><div><h2 class="view-title">실시간 패킷 분석</h2><p class="view-sub">패킷을 누르면 계층별 헤더를 자세히 볼 수 있어요. 열 제목을 누르면 정렬돼요.</p></div></div>
+    <details class="card enc-panel" id="encPanel" open>
+      <summary class="enc-sum"><span><b>🔐 암호화 통신 분석</b> <span class="card-sub" style="margin:0">TLS 1.3 · QUIC/HTTP3 · ECH · PQC · 암호화 DNS — 항목을 누르면 관련 패킷만 보여요</span></span>
+        <span class="row"><button class="btn btn-ghost btn-sm" id="encEvents" type="button">분석 기록</button></span></summary>
+      <div class="kpi-row enc-grid" id="encGrid"><div class="card kpi"><div class="kpi-label">불러오는 중</div><div class="kpi-value wait">-</div></div></div>
+      <div class="enc-bars" id="encBars"></div>
+      <div class="card-sub" id="encNote" style="margin-top:10px"></div>
+    </details>
     <div class="packets-layout" id="pkLayout">
       <div class="card">
         <div class="toolbar">
@@ -126,6 +133,7 @@
         </div>
         <div class="filter-bar">
           <input class="input sm" id="pkIp" placeholder="IP (출발지 또는 목적지)"><input class="input sm port" id="pkPort" type="number" min="0" max="65535" placeholder="포트">
+          <span class="chip on hidden" id="pkTagChip"></span>
           <button class="btn btn-ghost btn-sm" id="pkClear">필터 지우기</button>
           <span class="mode-note hidden" id="pkModeNote">정렬·페이지 보기 중에는 실시간 갱신이 멈춰요 · <a href="#" id="pkLiveBack" style="color:inherit">실시간 보기로</a></span>
         </div>

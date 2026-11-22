@@ -2,10 +2,11 @@
 import { S, $, $$, api, esc, num, bytes, tm, dt, toast, hooks, debounce } from "../core.js";
 import { srcPill, openDrawer, closeDrawer, loadingHtml, errorHtml } from "../ui.js";
 import { ipLink } from "../ipdetail.js";
+import { bindEncrypted, loadEncrypted, encDetailHtml } from "./encrypted.js";
 
 const PAGE = 100;
 /* S.pk: rows, lastId, proto, q, ip, port, paused, sessionId, newIds, sort, order, mode(live|paged), page, total */
-Object.assign(S.pk, { ip: "", port: "", sort: "id", order: "desc", mode: "live", page: 1, total: null });
+Object.assign(S.pk, { ip: "", port: "", tag: "", tagLabel: "", sort: "id", order: "desc", mode: "live", page: 1, total: null });
 
 const COLS_EASY = [["ts", "시간", true], ["dir", "방향", false], ["src", "보내는 장치", true], ["dst", "받는 장치", true], ["proto", "종류", true], ["ports", "포트", false], ["length", "크기", true, "num"], ["info", "설명", false]];
 const COLS_EXPERT = [["id", "No.", true], ["ts", "Time", true], ["src", "Source", true], ["dst", "Destination", true], ["proto", "Protocol", true], ["sport", "SPort", true, "num"], ["dport", "DPort", true, "num"], ["flags", "Flags", false], ["ttl", "TTL", false, "num"], ["length", "Len", true, "num"], ["info", "Info", false]];
@@ -36,7 +37,9 @@ export function renderPackets() {
   const rows = S.pk.rows, P = S.pk;
   $("#pkEmpty").classList.toggle("hidden", rows.length > 0);
   $("#pkBody").innerHTML = rows.map(pkRow).join("");
-  const filt = [P.proto && P.proto, P.q && `"${P.q}"`, P.ip && `IP ${P.ip}`, P.port && `포트 ${P.port}`].filter(Boolean);
+  const filt = [P.proto && P.proto, P.q && `"${P.q}"`, P.ip && `IP ${P.ip}`, P.port && `포트 ${P.port}`, P.tag && P.tagLabel].filter(Boolean);
+  $("#pkTagChip").classList.toggle("hidden", !P.tag);
+  if (P.tag) $("#pkTagChip").textContent = `🔐 ${P.tagLabel} ✕`;
   if (P.mode === "paged") {
     const pages = Math.max(1, Math.ceil((P.total || 0) / PAGE));
     $("#pkInfo").textContent = rows.length ? `전체 ${num(P.total)}개 중 ${num((P.page - 1) * PAGE + 1)}~${num((P.page - 1) * PAGE + rows.length)} · 정렬 ${P.sort} ${P.order === "asc" ? "오름차순" : "내림차순"}${filt.length ? " · 필터 " + filt.join(", ") : ""}` : "";
@@ -56,9 +59,11 @@ function filterParams(p) {
   if (P.q) p.set("q", P.q);
   if (P.ip) p.set("ip", P.ip);
   if (P.port !== "" && P.port != null) p.set("port", P.port);
+  if (P.tag) p.set("tag", P.tag);
   return p;
 }
 export async function loadPackets(reset = false) {
+  loadEncrypted(reset);
   if (S.pk.mode === "paged") { if (reset) { S.pk.page = 1; await loadPaged(); } return; }
   const sid = S.status && S.status.session ? S.status.session.id : null;
   if (reset || sid !== S.pk.sessionId) { S.pk.rows = []; S.pk.lastId = 0; S.pk.sessionId = sid; }
@@ -154,6 +159,7 @@ export function renderPacketDrawer() {
     <div class="section-h">계층 구조 ${S.expert ? "(Protocol tree)" : "· 데이터가 어떻게 포장되어 있는지"}</div>
     ${!S.expert ? `<div class="card-sub">바깥쪽(이더넷)부터 안쪽(응용 데이터)까지, 편지 봉투처럼 겹겹이 싸여 전달돼요.</div>` : ""}
     ${layers || `<div class="empty sm">${esc(t.note || "헤더 정보가 없어요")}</div>`}
+    ${encDetailHtml(d.encrypted)}
     <details class="more" ${S.expert ? "open" : ""}><summary>원본 바이트(헥사 덤프) 보기</summary><div class="hex" style="margin-top:8px">${hex || "원본 없음"}</div></details>`);
 }
 
@@ -162,7 +168,14 @@ export function bindPackets() {
   $("#pkSearch").oninput = debounce((e) => { S.pk.q = e.target.value.trim(); loadPackets(true); }, 300);
   $("#pkIp").oninput = debounce((e) => { S.pk.ip = e.target.value.trim(); loadPackets(true); }, 300);
   $("#pkPort").oninput = debounce((e) => { S.pk.port = e.target.value.trim(); loadPackets(true); }, 300);
-  $("#pkClear").onclick = () => { S.pk.q = ""; S.pk.ip = ""; S.pk.port = ""; S.pk.proto = ""; $("#pkSearch").value = ""; $("#pkIp").value = ""; $("#pkPort").value = "";
+  bindEncrypted((f) => {
+    const same = S.pk.tag === f.tag && f.tag;
+    S.pk.tag = same ? "" : (f.tag || ""); S.pk.tagLabel = same ? "" : f.label;
+    if (!f.tag && f.proto) { S.pk.proto = f.proto; $$("#pkChips .chip").forEach((x) => x.classList.toggle("on", x.dataset.p === f.proto)); }
+    loadPackets(true);
+  });
+  $("#pkTagChip").onclick = () => { S.pk.tag = ""; S.pk.tagLabel = ""; loadPackets(true); };
+  $("#pkClear").onclick = () => { S.pk.q = ""; S.pk.ip = ""; S.pk.port = ""; S.pk.proto = ""; S.pk.tag = ""; S.pk.tagLabel = ""; $("#pkSearch").value = ""; $("#pkIp").value = ""; $("#pkPort").value = "";
     $$("#pkChips .chip").forEach((x) => x.classList.toggle("on", x.dataset.p === "")); backToLive(); };
   $("#pkLiveBack").onclick = (e) => { e.preventDefault(); backToLive(); };
   $("#pkPause").onclick = () => { S.pk.paused = !S.pk.paused; $("#pkPause").textContent = S.pk.paused ? "▶ 계속" : "⏸ 일시정지"; renderPackets(); };

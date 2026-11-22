@@ -131,6 +131,10 @@ flowchart LR
 `capture/parser.py`가 Ethernet → IPv4/IPv6 → TCP/UDP/ICMP/ARP → DNS/TLS 순서로 필드를 꺼냅니다.
 - TCP: 플래그(SYN/ACK/RST/FIN), SEQ/ACK, 윈도우 크기 / IP: TTL, 출발지·목적지 / DNS: 질의 ID·이름·응답 코드·답변
 - TLS: 암호화되지 않은 ClientHello의 **SNI(접속하려는 도메인)** 만 읽습니다. **HTTPS 본문은 복호화하지 않으며 볼 수 없습니다.**
+- **TCP 재조립**: ClientHello가 여러 세그먼트로 나뉘어도(최신 Chrome은 PQC 키 공유 때문에 거의 항상 나뉨) 순서 번호로 순서를 복원해 읽습니다. 중복·재전송·겹침·누락을 처리하고 실패하면 원인을 기록합니다 (`netcare/encrypted/reassembly.py`).
+- **TLS 1.3·ALPN·PQC**: `supported_versions`로 실제 버전을, ALPN으로 HTTP/2·HTTP/3를, 지원 그룹·Key Share·서버 선택 그룹으로 하이브리드 양자내성 키 교환(X25519MLKEM768 등)을 읽습니다.
+- **QUIC·HTTP/3**: RFC 9001·9369에 공개된 방식으로 QUIC Initial을 복호화해 SNI·ALPN·버전·Connection ID를 읽습니다(Initial 이후 내용은 볼 수 없음). DoQ는 ALPN `doq`로 확인합니다.
+- **암호화 DNS**: 일반 DNS·DoT(확인)·DoQ(확인)·DoH(추정, 신뢰도와 근거 표시)를 구분하고, 암호화 DNS는 도메인을 표시하지 않습니다. 자세한 설계와 실측 결과: [docs/07_암호화통신_분석.md](docs/07_암호화통신_분석.md)
 - **ECH·ESNI**: 실제 도메인을 암호화하는 ECH(Encrypted Client Hello)·ESNI 확장을 감지합니다. 바깥 SNI가 ECH 공개 이름(예: `cloudflare-ech.com`)이면 "ECH 사용 · 실제 도메인은 암호화됨"으로 표시하고 그 이름을 목적지로 단정하지 않습니다. 브라우저는 ECH를 쓰지 않을 때도 가짜(GREASE) ECH 확장을 붙이므로, 그 밖의 경우에는 "ECH 확장 있음(확정 불가)"으로만 표시합니다. 암호화된 실제 도메인은 복호화하지 않습니다.
 - 각 필드에 한국어 설명을 붙이고(`analysis/terms.py`), 화면용 쉬운 문장("내 컴퓨터 → github.com 으로 보안 웹 접속")을 만듭니다.
 - 방향(업로드/다운로드)은 내 컴퓨터의 IP·MAC 목록을 기준으로 판단합니다.
@@ -548,7 +552,7 @@ sequenceDiagram
 ## 11. 테스트
 
 ```bash
-.venv/bin/python -m pytest -q          # 단위·통합 테스트 90개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
+.venv/bin/python -m pytest -q          # 단위·통합 테스트 122개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
 # UI E2E(71개 항목, 크롬 필요)는 기록을 만들므로 별도 데이터 폴더의 서버에서 실행
 NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 8771 &
 .venv/bin/python scripts/ui_e2e.py --base http://127.0.0.1:8771
@@ -558,6 +562,7 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 |---|---|
 | `test_parser.py` | 계층별 필드 해석, 방향 판단 |
 | `test_detection.py` | 기본 규칙과 테스트 시나리오별 기대 탐지, 오탐 완화 |
+| `test_tls_reassembly.py` · `test_quic.py` · `test_encrypted_analyzer.py` | ClientHello 완전 해석, TCP 재조립(순서·중복·겹침·누락), QUIC Initial(RFC 테스트 벡터·분할·새 CID), ECH 상태 분리, DNS 종류, pcap→엔진→API |
 | `test_crowdsec_compat.py` | HTTP 파싱, CrowdSec leaky bucket 의미, SQLi·Log4Shell·탐색·FTP·SSH·다중 포트 스캔, 확장(디코딩 XSS·수동 SQLi·웹 로그인), 정상 사용 오탐 방지 |
 | `test_integrity.py` | 체크섬 비트 변조, TCP RST·데이터 주입, RTP·설정 프로토콜 재전송, 정상 종료·송신 패킷 오탐 방지 |
 | `test_tls_ech.py` | TLS SNI·ECH·ESNI 판정, 잘린 ClientHello 처리 |
@@ -581,7 +586,8 @@ NetCare/
 │   ├── config.py              설정(임계값 등) — data/config.json
 │   ├── capture/               interfaces · parser · engine
 │   ├── analysis/              stats · probe · health · terms
-│   ├── detection/             detector(기본+EWMA) · advanced(확장) · rules(카탈로그)
+│   ├── detection/             detector(기본+EWMA) · advanced(확장) · integrity · crowdsec_compat · rules(카탈로그)
+│   ├── encrypted/             tls_hello · reassembly · quic · dns_class · analyzer (최신 암호화 통신 분석)
 │   ├── diagnosis/             explainer
 │   ├── remediation/           actions · firewall · system
 │   ├── storage/db.py          SQLite

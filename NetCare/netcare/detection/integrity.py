@@ -91,6 +91,10 @@ class IntegrityDetector:
                 b.csum_bad[src] += 1
                 b.csum_layers.update(bad)
         proto = r.get("proto")
+        if r.get("reasm_conflict"):
+            # TCP 재조립 중 같은 위치에 서로 다른 데이터가 온 경우 (주입·IDS 우회 시도 형태)
+            b.inject.append(("overlap_conflict", f"{src}:{r.get('sport')} → {r.get('dst')}:{r.get('dport')}",
+                             f"재조립 중 겹친 데이터 {r['reasm_conflict']}건의 내용이 서로 다름"))
         if proto == "TCP":
             self._observe_tcp(r, ts, b)
         elif proto == "UDP":

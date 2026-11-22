@@ -72,6 +72,18 @@ def explain(a: dict, ctx: dict) -> dict:
     base["severity_label"] = SEVERITY_KO.get(sev, sev)
     base["certainty"] = ev.get("certainty")
     base["certainty_label"] = CERTAINTY_KO.get(ev.get("certainty"), "") if ev.get("certainty") else ""
+    # 분석 상태(확인됨/추정됨)·탐지 방식·분석할 수 없었던 정보 — 모든 탐지 결과에 같은 형식으로 붙인다
+    from netcare.detection.rules import RULES
+    rule = next((r for r in RULES if r["type"] == t), {})
+    cert = ev.get("certainty") or rule.get("certainty") or "measured"
+    base["analysis_status"] = "confirmed" if cert == "measured" else "estimated"
+    base["analysis_status_label"] = "확인됨" if cert == "measured" else "추정됨"
+    base["method"] = {"packet": "패킷 관측", "statistical": "통계 기준선", "probe": "ping·DNS 실측"}.get(rule.get("basis"), "")
+    base["evidence_basis"] = rule.get("evidence", "")
+    base["unknowns"] = list(rule.get("limits") or [])
+    if t in ("web_attack", "web_scan"):
+        base["unknowns"].append("HTTPS(암호화) 요청은 내용을 볼 수 없어 이 판정에 포함되지 않아요.")
+    base["sni_independent"] = True      # NetCare 의 탐지 규칙은 SNI(도메인)를 쓰지 않는다 — ECH 환경에서도 동작
     base["source_note"] = ("테스트 데이터에서 탐지된 결과예요. 실제 네트워크 상황이 아니에요."
                            if a.get("source") == "test" else
                            "가상 실험실(합성 데이터)에서 탐지된 결과예요. 실제 네트워크 상황이 아니에요."
@@ -554,7 +566,8 @@ def _csum(a, ev, ctx, who_src, who_dst, local):
 def _inject(a, ev, ctx, who_src, who_dst, local):
     kinds = ev.get("indicators") or {}
     names = {"rst_ttl": "평소와 다른 TTL의 연결 끊기(RST)", "rst_seq": "순서 번호가 크게 벗어난 RST",
-             "data_ttl": "평소와 다른 TTL의 데이터", "data_after_rst": "RST 뒤에도 이어진 데이터"}
+             "data_ttl": "평소와 다른 TTL의 데이터", "data_after_rst": "RST 뒤에도 이어진 데이터",
+             "overlap_conflict": "같은 위치에 내용이 다른 데이터(재조립 충돌)"}
     txt = ", ".join(f"{names.get(k, k)} {v}건" for k, v in kinds.items())
     return {
         "title": "누군가 연결에 가짜 패킷을 끼워 넣고 있을 수 있어요 (TCP 주입 의심)",

@@ -239,3 +239,20 @@ table.pk tbody tr.new { animation: flash 1s ease-out; }
 .lvl i { width: 6px; height: 6px; border-radius: 2px; background: var(--border); display: inline-block; }
 .lvl i.on { background: var(--sim); }
 .summary-box { background: var(--primary-soft); color: var(--primary-text); border-radius: var(--r-md); padding: 12px 16px; font-size: var(--fs-base); line-height: var(--lh-loose); margin-top: var(--sp-3); }
+
+/* 암호화 통신 분석 패널 */
+.enc-panel { margin-bottom: var(--sp-4); }
+.enc-panel > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.enc-panel > summary::-webkit-details-marker { display: none; }
+.enc-grid { margin-top: var(--sp-3); }
+.enc-grid .kpi { cursor: pointer; }
+.enc-grid .kpi.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+.enc-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); }
+@media (max-width: 860px) { .enc-bars { grid-template-columns: 1fr; } }
+.enc-bar { padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.enc-bar h4 { margin: 0 0 6px; font-size: var(--fs-sm); }
+.enc-row { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-xs); margin-top: 6px; cursor: pointer; }
+.enc-row:hover b { color: var(--primary); }
+.enc-st { font-size: var(--fs-2xs); }
+.enc-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: var(--fs-sm); }
+.enc-kv .k { color: var(--text-3); }

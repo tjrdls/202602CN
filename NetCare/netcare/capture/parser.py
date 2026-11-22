@@ -278,6 +278,7 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
             rec.update(proto="TCP", sport=int(t.sport), dport=int(t.dport), flags=flags_str(t),
                        seq=int(t.seq), ack=int(t.ack), window=int(t.window))
             payload = bytes(t.payload) if t.payload else b""
+            rec["_payload"] = payload        # 암호화 통신 분석기(재조립)용 — 엔진이 처리 후 지운다
             # 이더넷 최소 길이를 맞추는 채움 바이트(Padding)는 데이터가 아님
             ip_total = rec["ip_len"] or 0
             if ip_total and rec["ip_version"] == 4:
@@ -295,6 +296,7 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
             u = pkt[UDP]
             rec.update(proto="UDP", sport=int(u.sport), dport=int(u.dport), udp_len=int(u.len or 0))
             up = bytes(u.payload) if u.payload else b""
+            rec["_payload"] = up
             if up:
                 rec["udp_head"] = up[:16].hex()        # 시퀀스 번호 검증용 앞부분 (설정한 포트의 오프셋에서 읽음)
                 if not pkt.haslayer(DNS):
@@ -329,6 +331,13 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
                     for rr in d.an:
                         if getattr(rr, "type", None) in (1, 28):  # A, AAAA
                             answers.append(str(rr.rdata))
+                        elif getattr(rr, "type", None) == 65:    # HTTPS 레코드: ECH 설정(공개 이름)이 들어 있을 수 있음
+                            for sp_ in getattr(rr, "svc_params", None) or []:
+                                if getattr(sp_, "key", None) == 5 and isinstance(sp_.value, bytes):
+                                    from netcare.encrypted.tls_hello import parse_ech_config_list
+                                    names = parse_ech_config_list(sp_.value)
+                                    if names:
+                                        rec.setdefault("ech_public_names", []).extend(names)
                 except (AttributeError, TypeError):
                     pass
                 rec["dns_answers"] = answers[:20] or None
@@ -399,6 +408,8 @@ def friendly_summary(r: dict, local_ips: set[str]) -> str:
         t = r.get("tls") or {}
         if t.get("ech_status") == "public_name" or (t.get("esni") and not t.get("sni")):
             return f"암호화 연결을 시작해요 · 실제 사이트 이름은 숨겨져 있어요(ECH/ESNI) ({svc})"
+        if t.get("sni") and t.get("ech"):
+            return f"{t['sni']}(으)로 보이는 암호화 연결을 시작해요 · ECH 확장이 있어 실제 도메인인지 확정할 수 없어요 ({svc})"
         if t.get("sni"):
             return f"{t['sni']} 사이트에 암호화 연결을 시작해요 ({svc})"
         return f"{svc} · {action}"

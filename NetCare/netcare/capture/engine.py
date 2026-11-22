@@ -49,6 +49,8 @@ class Engine:
         self.db = db
         self.stats = LiveStats()
         self.detector = Detector(config.cfg.detection)
+        from netcare.encrypted.analyzer import EncryptedAnalyzer
+        self.enc = EncryptedAnalyzer()          # 최신 암호화 통신 분석 (TCP 재조립·QUIC·ECH·PQC·암호화 DNS)
         self.queue: queue.Queue = queue.Queue(maxsize=config.cfg.queue_size)
         self._lock = threading.RLock()
         self._eval_lock = threading.RLock()
@@ -110,6 +112,8 @@ class Engine:
                     break
             self.stats.reset()
             self.detector = Detector(self.config.cfg.detection)
+            from netcare.encrypted.analyzer import EncryptedAnalyzer
+            self.enc = EncryptedAnalyzer()
             self.active.clear()
             self.dropped = self.processed = 0
             self.offline_clock = None
@@ -344,6 +348,11 @@ class Engine:
         rec = parse_packet(pkt, lips, lmacs, source=source, snaplen=cfg.raw_snaplen, store_raw=cfg.store_raw)
         if not rec["ts"]:
             rec["ts"] = time.time()
+        try:
+            self.enc.process(rec, rec.get("_payload"))
+        except Exception:
+            log.exception("encrypted analysis failed")
+        rec.pop("_payload", None)
         if source in ("pcap", "sim"):
             self.offline_clock = rec["ts"]
         # 탐지 평가는 '처리한 패킷의 시각'을 기준으로 1초마다 한다.
@@ -392,6 +401,10 @@ class Engine:
         if not self.session:
             return
         with self._eval_lock:  # 처리 스레드와 ticker 가 동시에 평가하지 않도록
+            try:
+                self.enc.tick(now)
+            except Exception:
+                log.exception("encrypted analyzer tick failed")
             try:
                 cands = self.detector.evaluate(now)
             except Exception:

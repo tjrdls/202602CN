@@ -74,8 +74,8 @@ CREATE TABLE IF NOT EXISTS ip_names (
 """
 
 PACKET_COLS = ("session_id", "source", "ts", "length", "src", "dst", "proto", "sport", "dport", "flags", "ttl",
-               "direction", "service", "info", "friendly", "src_mac", "dst_mac", "first_layer", "raw")
-LIST_COLS = "id, session_id, source, ts, length, src, dst, proto, sport, dport, flags, ttl, direction, service, info, friendly, src_mac, dst_mac"
+               "direction", "service", "info", "friendly", "src_mac", "dst_mac", "first_layer", "raw", "tags")
+LIST_COLS = "id, session_id, source, ts, length, src, dst, proto, sport, dport, flags, ttl, direction, service, info, friendly, src_mac, dst_mac, tags"
 
 JSON_FIELDS = {"evidence", "explanation", "params", "before_state", "result", "verification", "rollback_info",
                "rollback_result", "components"}
@@ -99,6 +99,10 @@ class Database:
         self._wlock = threading.RLock()
         self._w = self._connect()
         self._w.executescript(SCHEMA)
+        # 이전 버전 DB 이주: 암호화 통신 분석 태그 열 (없으면 추가)
+        cols = {r[1] for r in self._w.execute("PRAGMA table_info(packets)").fetchall()}
+        if "tags" not in cols:
+            self._w.execute("ALTER TABLE packets ADD COLUMN tags TEXT")
         self._w.commit()
         self._local = threading.local()
         self._inserts_since_prune = 0
@@ -154,7 +158,7 @@ class Database:
                 cur.execute(sql, (session_id, r["source"], r["ts"], r["length"], r["src"], r["dst"], r["proto"],
                                   r["sport"], r["dport"], r["flags"], r["ttl"], r["direction"], r["service"],
                                   r.get("info"), r.get("friendly"), r["src_mac"], r["dst_mac"], r["first_layer"],
-                                  r.get("raw")))
+                                  r.get("raw"), ("," + ",".join(r["tags"]) + ",") if r.get("tags") else None))
                 r["id"] = cur.lastrowid
             self._w.commit()
             self._inserts_since_prune += len(recs)
@@ -184,8 +188,10 @@ class Database:
             self._w.commit()
 
     @staticmethod
-    def _packet_where(session_id=None, before_id=None, after_id=None, proto=None, q=None, ip=None, src=None, dst=None, port=None):
+    def _packet_where(session_id=None, before_id=None, after_id=None, proto=None, q=None, ip=None, src=None, dst=None, port=None, tag=None):
         where, params = [], []
+        if tag:
+            where.append("tags LIKE ?"); params.append(f"%,{tag},%")
         if session_id is not None:
             where.append("session_id=?"); params.append(session_id)
         if before_id:
@@ -218,8 +224,8 @@ class Database:
     def list_packets(self, session_id: int | None = None, before_id: int | None = None, limit: int = 200,
                      proto: str | None = None, q: str | None = None, after_id: int | None = None, ip: str | None = None,
                      src: str | None = None, dst: str | None = None, port: int | None = None,
-                     sort: str = "id", order: str = "desc", offset: int = 0) -> list[dict]:
-        where, params = self._packet_where(session_id, before_id, after_id, proto, q, ip, src, dst, port)
+                     sort: str = "id", order: str = "desc", offset: int = 0, tag: str | None = None) -> list[dict]:
+        where, params = self._packet_where(session_id, before_id, after_id, proto, q, ip, src, dst, port, tag)
         sql = f"SELECT {LIST_COLS} FROM packets"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -229,8 +235,8 @@ class Database:
         return self.query(sql, params)
 
     def count_packets(self, session_id: int | None = None, proto: str | None = None, q: str | None = None, ip: str | None = None,
-                      src: str | None = None, dst: str | None = None, port: int | None = None) -> int:
-        where, params = self._packet_where(session_id, None, None, proto, q, ip, src, dst, port)
+                      src: str | None = None, dst: str | None = None, port: int | None = None, tag: str | None = None) -> int:
+        where, params = self._packet_where(session_id, None, None, proto, q, ip, src, dst, port, tag)
         sql = "SELECT COUNT(*) FROM packets" + (" WHERE " + " AND ".join(where) if where else "")
         r = self._r().execute(sql, params).fetchone()
         return int(r[0])

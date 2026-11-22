@@ -113,7 +113,7 @@ RULES: list[dict] = [
          false_positives=["가상 머신·도커 브리지의 체크섬 오프로드", "일부 USB 랜카드 드라이버", "손상된 케이블·무선 간섭(공격이 아닌 손상)"],
          environments=["모든 환경"], limits=["내가 보낸 패킷은 NIC 오프로드 때문에 검사하지 않음", "체크섬까지 다시 계산한 변조는 잡을 수 없음"]),
     dict(type="tcp_injection", label="TCP 주입 의심 (RST·데이터)", category="integrity", basis="packet",
-         condition="{window_sec}초 동안 같은 연결의 평소 TTL과 {inject_ttl_delta}홉 이상 다른 RST·데이터, 예상 순서 번호에서 {inject_seq_window:,}바이트 넘게 벗어난 RST, RST 뒤 2초 안에 이어진 데이터가 합쳐서 {inject_min_events}건 이상",
+         condition="{window_sec}초 동안 같은 연결의 평소 TTL과 {inject_ttl_delta}홉 이상 다른 RST·데이터, 예상 순서 번호에서 {inject_seq_window:,}바이트 넘게 벗어난 RST, RST 뒤 2초 안에 이어진 데이터, TCP 재조립 중 내용이 다른 겹침이 합쳐서 {inject_min_events}건 이상",
          thresholds=["inject_ttl_delta", "inject_seq_window", "inject_min_events", "window_sec"], severity="주의 (확정 불가)", certainty="suspected",
          evidence="연결(방향)별 TTL 최빈값과 다음 예상 순서 번호(SEQ) 추적",
          false_positives=["경로 변경(모바일 망 전환·로드밸런서)", "중간 방화벽이 보내는 정상 RST"],

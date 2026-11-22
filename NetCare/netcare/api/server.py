@@ -174,13 +174,25 @@ def create_app(data_dir: Path | None = None, start_probe: bool = True) -> FastAP
         return engine.snapshot()
 
     # ───────── 패킷 ─────────
+    @app.get("/api/encrypted")
+    def encrypted_summary():
+        """패킷 분석 화면의 '암호화 통신' 패널: 프로토콜 비율, TLS 버전, SNI 추출률, ECH·PQC, 암호화 DNS, 재조립."""
+        return {"summary": engine.enc.snapshot(), "status_labels": {"confirmed": "확인됨", "estimated": "추정됨", "limited": "분석 제한", "failed": "분석 실패"}}
+
+    @app.get("/api/encrypted/events")
+    def encrypted_events(kind: str | None = Query(None, pattern=r"^(TLS|QUIC)$"),
+                         status: str | None = Query(None, pattern=r"^(confirmed|estimated|limited|failed)$"),
+                         limit: int = Query(100, ge=1, le=300)):
+        return {"events": engine.enc.recent(kind, status, limit)}
+
     @app.get("/api/packets")
     def packets(after_id: int = 0, before_id: int | None = None, limit: int = Query(200, ge=1, le=2000),
                 proto: str | None = None, q: str | None = None, session_id: int | None = None,
                 ip: str | None = None, src: str | None = None, dst: str | None = None, port: int | None = Query(None, ge=0, le=65535),
-                sort: str = "id", order: str = "desc", offset: int = Query(0, ge=0), with_total: bool = False):
+                sort: str = "id", order: str = "desc", offset: int = Query(0, ge=0), with_total: bool = False,
+                tag: str | None = Query(None, pattern=r"^[a-z0-9_]{1,24}$")):
         sid = session_id if session_id is not None else (engine.session["id"] if engine.session else None)
-        f = dict(proto=proto or None, q=(q or "").strip() or None, ip=ip or None, src=src or None, dst=dst or None, port=port)
+        f = dict(proto=proto or None, q=(q or "").strip() or None, ip=ip or None, src=src or None, dst=dst or None, port=port, tag=tag or None)
         rows = db.list_packets(sid, before_id=before_id, after_id=after_id or None, limit=limit, sort=sort, order=order, offset=offset, **f)
         ctx = engine.context()
         for r in rows:
@@ -243,7 +255,9 @@ def create_app(data_dir: Path | None = None, start_probe: bool = True) -> FastAP
         p["service_desc"] = desc or terms.PROTOCOLS.get(p["proto"], "")
         p["protocol_desc"] = terms.PROTOCOLS.get(p["proto"], "")
         p["truncated"] = bool(raw) and len(raw) < p["length"]
-        return {"packet": p, "tree": tree}
+        # 이 패킷에서 끝난 암호화 통신 분석(TCP 재조립·QUIC Initial)이 있으면 함께 (전문가 모드 상세)
+        enc = next((e for e in engine.enc.recent(limit=300) if e.get("packet_id") == pid), None)
+        return {"packet": p, "tree": tree, "encrypted": enc}
 
     # ───────── 이상 징후 ─────────
     @app.get("/api/anomalies")

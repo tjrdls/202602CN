@@ -133,7 +133,7 @@ export function renderIssueDetail() {
   const after = lastAct ? (lastAct.verification && lastAct.verification.verified === true ? "개선 확인됨" : lastAct.verification && lastAct.verification.verified === false ? "개선 미확인" : (a.status === "resolved" ? "조치 완료" : "검증 대기")) : null;
   $("#issueDetail").innerHTML = `
     <div class="detail-hero"><div class="detail-icon sev-${esc(a.severity)}">${TYPE_ICON[a.type] || "⚠️"}</div>
-      <div style="flex:1;min-width:0"><div>${sevPill(a.severity)} ${srcPill(a.source)} <span class="sub-ip">${esc(e.type_label || "")} · ${esc(STATUS_KO[a.status] || a.status)}${e.certainty_label ? " · " + esc(e.certainty_label) : ""}</span></div>
+      <div style="flex:1;min-width:0"><div>${sevPill(a.severity)} ${srcPill(a.source)} <span class="sub-ip">${esc(e.type_label || "")} · ${esc(STATUS_KO[a.status] || a.status)}${e.certainty_label ? " · " + esc(e.certainty_label) : ""}</span>${e.analysis_status_label ? ` <span class="sev-badge ${e.analysis_status === "confirmed" ? "s-good" : "s-warning"}">${esc(e.analysis_status_label)}</span>` : ""}</div>
       <div class="detail-title">${esc(e.title)}</div></div></div>
     <div class="metric-grid mt">
       <div class="metric"><div class="k">① 언제</div><div class="v" style="font-size:var(--fs-md)">${dt(a.detected_at)}</div><div class="sub-ip">마지막 ${ago(a.last_seen)} · ${a.last_seen > a.detected_at ? dur(a.last_seen - a.detected_at) + " 동안" : "1회"}</div></div>
@@ -154,6 +154,7 @@ export function renderIssueDetail() {
       <div class="a-item" style="grid-column:1/-1"><div class="ak">어떤 영향이 있을 수 있나요?</div><div class="av">${esc(an.impact)}</div></div>
     </div>
     ${e.false_positive ? `<div class="callout mt"><b>💡 정상일 수도 있어요</b>${esc(e.false_positive)}</div>` : ""}
+    ${(e.unknowns || []).length || e.method ? `<div class="callout mt"><b>🔎 탐지 방식과 한계</b>${e.method ? `탐지 방식: ${esc(e.method)}${e.evidence_basis ? " — " + esc(e.evidence_basis) : ""}<br>` : ""}${(e.unknowns || []).length ? "분석할 수 없었던 정보: " + e.unknowns.map(esc).join(" · ") : ""}${e.sni_independent ? "<br>이 판정은 SNI(도메인)를 쓰지 않아 ECH로 도메인이 숨겨져도 동작해요." : ""}</div>` : ""}
     <div class="section-h">⑥ 이렇게 해결해 보세요</div>${recs || `<div class="empty sm">추천 조치가 없어요</div>`}
     <div style="display:flex;gap:8px;margin-top:8px">${["active", "ended"].includes(a.status) ? `<button class="btn btn-secondary btn-sm" id="dismissBtn">정상 통신이에요</button>` : ""}</div>
     <div class="section-h">⑦ 진행 타임라인 · 발생 → 탐지 → 조치 → 검증</div>${timelineHtml(a)}
