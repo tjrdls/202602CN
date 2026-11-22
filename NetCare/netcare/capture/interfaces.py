@@ -9,6 +9,8 @@ from functools import lru_cache
 
 import psutil
 
+from ..remediation.system import decode_output
+
 SYSTEM = platform.system()
 
 
@@ -61,9 +63,20 @@ def default_route() -> tuple[str | None, str | None]:
         return (None, None)
 
 
+def default_source_ip() -> str | None:
+    """기본 경로로 나갈 때 쓰는 내 IP. Windows 는 Scapy 장치 이름이 어댑터 이름과 달라 IP 로 기본 인터페이스를 찾는다."""
+    try:
+        from scapy.all import conf
+        _iface, addr, _gw = conf.route.route("0.0.0.0")
+        return addr if addr and addr != "0.0.0.0" else None
+    except Exception:
+        return None
+
+
 def list_interfaces() -> list[dict]:
     """psutil 기반 목록 (캡처는 Scapy 이름을 사용, macOS/Linux 에서는 동일)."""
     default_iface, _ = default_route()
+    default_src = default_source_ip()
     addrs = psutil.net_if_addrs()
     stats = psutil.net_if_stats()
     can_check_capture = True
@@ -89,7 +102,7 @@ def list_interfaces() -> list[dict]:
             "ipv4": ipv4, "ipv6": ipv6, "mac": mac,
             "is_up": bool(st and st.isup),
             "speed_mbps": st.speed if st else 0,
-            "is_default": name == default_iface,
+            "is_default": name == default_iface or bool(default_src and default_src in ipv4),
         })
     # 기본 경로 → IPv4 보유 & 활성 → 나머지 순
     result.sort(key=lambda r: (not r["is_default"], not (r["is_up"] and r["ipv4"]), r["name"]))
@@ -156,7 +169,7 @@ def dns_servers() -> list[str]:
             with open("/etc/resolv.conf", encoding="utf-8") as f:
                 servers = [ln.split()[1] for ln in f if ln.startswith("nameserver") and len(ln.split()) > 1]
         elif SYSTEM == "Windows":
-            out = subprocess.run(["ipconfig", "/all"], capture_output=True, text=True, timeout=10).stdout
+            out = decode_output(subprocess.run(["ipconfig", "/all"], capture_output=True, timeout=10).stdout)
             servers = re.findall(r"DNS[^\n:]*:\s*([0-9a-fA-F\.:]+)", out)
     except (OSError, subprocess.TimeoutExpired):
         pass

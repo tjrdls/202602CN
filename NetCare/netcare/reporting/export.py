@@ -69,6 +69,13 @@ def _font() -> str:
                 return "NetCareKR"
             except Exception:
                 continue
+    # 시스템 한글 TTF가 없을 때(예: 폰트 미설치 Linux): reportlab 내장 CID 한글 폰트로 대체
+    try:
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        pdfmetrics.registerFont(UnicodeCIDFont("HYGothic-Medium"))
+        return "HYGothic-Medium"
+    except Exception:
+        pass
     raise RuntimeError("PDF에 쓸 한글 폰트를 찾지 못했어요. (macOS: AppleGothic, Windows: 맑은 고딕, Linux: 나눔고딕 설치 필요)")
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ipaddress
+import locale
 import os
 import platform
 import shlex
@@ -26,12 +27,25 @@ def can_elevate() -> bool:
     return SYSTEM == "Darwin" and not is_admin()
 
 
+def decode_output(b: bytes | None) -> str:
+    """명령 출력 바이트를 문자열로. Windows 는 콘솔 설정에 따라 UTF-8 또는 CP949 로 나오므로 차례로 시도한다."""
+    if not b:
+        return ""
+    for enc in ("utf-8", locale.getpreferredencoding(False), "cp949"):
+        try:
+            return b.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return b.decode("utf-8", "replace")
+
+
 def run(cmd: list[str], timeout: float = 20) -> dict:
     t0 = time.time()
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(cmd, capture_output=True, timeout=timeout)
         return {"cmd": " ".join(shlex.quote(c) for c in cmd), "returncode": p.returncode,
-                "stdout": p.stdout[-4000:], "stderr": p.stderr[-2000:], "elapsed": round(time.time() - t0, 2)}
+                "stdout": decode_output(p.stdout)[-4000:], "stderr": decode_output(p.stderr)[-2000:],
+                "elapsed": round(time.time() - t0, 2)}
     except FileNotFoundError:
         return {"cmd": " ".join(cmd), "returncode": 127, "stdout": "", "stderr": f"명령을 찾을 수 없어요: {cmd[0]}", "elapsed": 0}
     except subprocess.TimeoutExpired:

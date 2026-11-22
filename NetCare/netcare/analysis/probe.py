@@ -12,6 +12,8 @@ import socket
 import subprocess
 import time
 
+from ..remediation.system import decode_output
+
 SYSTEM = platform.system()
 _POOL = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="netcare-dns")
 
@@ -32,8 +34,8 @@ def ping(target: str, count: int = 4, timeout_ms: int = 1000) -> dict:
         cmd[0] = "ping6"
         cmd = [c for c in cmd if c not in ("-W", str(timeout_ms))]
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=count * (timeout_ms / 1000 + 0.5) + 5)
-        out = p.stdout + p.stderr
+        p = subprocess.run(cmd, capture_output=True, timeout=count * (timeout_ms / 1000 + 0.5) + 5)
+        out = decode_output(p.stdout) + decode_output(p.stderr)
     except FileNotFoundError:
         res["error"] = "ping 명령을 찾을 수 없어요"
         return res
