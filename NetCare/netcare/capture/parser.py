@@ -6,6 +6,8 @@ Scapy 패킷을 다음 두 가지 형태로 바꾼다.
 
 주의: HTTPS(TLS) 본문은 암호화되어 있으므로 해석하지 않는다.
 TLS 레코드 헤더와 ClientHello 의 SNI(평문으로 전송되는 접속 도메인)만 읽는다.
+ECH(Encrypted Client Hello)·ESNI 를 쓰면 진짜 접속 도메인은 암호화되어 볼 수 없으므로,
+확장이 있다는 사실과 바깥(공개) 이름만 표시하고 그것을 실제 목적지로 단정하지 않는다.
 """
 from __future__ import annotations
 
@@ -32,6 +34,13 @@ if CookedLinux is not None:
 ETHERTYPES = {0x0800: "IPv4", 0x86DD: "IPv6", 0x0806: "ARP", 0x8100: "VLAN", 0x88CC: "LLDP"}
 
 TLS_CONTENT_TYPES = {20: "ChangeCipherSpec", 21: "Alert", 22: "Handshake", 23: "Application Data(암호화됨)"}
+# TLS 확장 번호
+EXT_SERVER_NAME = 0x0000
+EXT_ECH = 0xFE0D        # Encrypted Client Hello (RFC 9849 계열 최종안)
+EXT_ESNI = 0xFFCE       # Encrypted SNI (폐기된 초안, 구형 Firefox 등)
+# ECH 를 쓰는 서비스가 바깥 ClientHello 에 넣는 대표적인 공개 이름(client-facing server)
+ECH_PUBLIC_NAMES = {"cloudflare-ech.com"}
+
 TLS_VERSIONS = {0x0301: "TLS 1.0", 0x0302: "TLS 1.1", 0x0303: "TLS 1.2(또는 1.3 호환 표기)", 0x0304: "TLS 1.3"}
 
 
@@ -61,7 +70,7 @@ def _canon_flags(f: str) -> str:
 
 
 def parse_tls(payload: bytes) -> dict | None:
-    """TLS 레코드 헤더와 ClientHello SNI 를 읽는다. TLS 가 아니면 None."""
+    """TLS 레코드 헤더와 ClientHello 의 SNI·ECH·ESNI 를 읽는다. TLS 가 아니면 None."""
     if len(payload) < 5:
         return None
     ctype, ver, length = payload[0], struct.unpack("!H", payload[1:3])[0], struct.unpack("!H", payload[3:5])[0]
@@ -70,15 +79,27 @@ def parse_tls(payload: bytes) -> dict | None:
     info: dict[str, Any] = {"content_type": TLS_CONTENT_TYPES[ctype], "version": TLS_VERSIONS[ver], "length": length}
     if ctype == 22 and len(payload) > 9 and payload[5] == 1:  # Handshake / ClientHello
         info["handshake"] = "ClientHello(접속 시작 인사)"
-        sni = _extract_sni(payload[5:])
-        if sni:
-            info["sni"] = sni
+        ch = client_hello_info(payload[5:])
+        if ch["sni"]:
+            info["sni"] = ch["sni"]
+        if ch["ech"]:
+            info["ech"] = True
+            # 공개 이름이면 실제 ECH 사용이 확실하고, 이 SNI 는 진짜 목적지가 아니다.
+            # 그 밖의 경우는 실제 ECH 인지, 브라우저가 늘 붙이는 가짜(GREASE) ECH 인지 패킷만으로 구분할 수 없다.
+            info["ech_status"] = "public_name" if (ch["sni"] or "").lower() in ECH_PUBLIC_NAMES else "present"
+        if ch["esni"]:
+            info["esni"] = True
     elif ctype == 22 and len(payload) > 5 and payload[5] == 2:
         info["handshake"] = "ServerHello(서버 응답 인사)"
     return info
 
 
-def _extract_sni(hs: bytes) -> str | None:
+def client_hello_info(hs: bytes) -> dict:
+    """ClientHello 의 확장 목록을 훑어 SNI(평문 이름)와 ECH·ESNI 확장 유무를 돌려준다.
+
+    hs 는 핸드셰이크 메시지(유형 1바이트부터). 형식이 깨져 있어도 예외 없이 읽은 데까지만 돌려준다.
+    """
+    out: dict[str, Any] = {"sni": None, "ech": False, "esni": False}
     try:
         p = 4 + 2 + 32  # handshake header, version, random
         sid_len = hs[p]; p += 1 + sid_len
@@ -88,14 +109,35 @@ def _extract_sni(hs: bytes) -> str | None:
         end = min(len(hs), p + ext_total)
         while p + 4 <= end:
             etype, elen = struct.unpack("!HH", hs[p:p + 4]); p += 4
-            if etype == 0 and elen >= 5:  # server_name
+            if etype == EXT_SERVER_NAME and elen >= 5 and out["sni"] is None:
                 name_len = struct.unpack("!H", hs[p + 3:p + 5])[0]
-                name = hs[p + 5:p + 5 + name_len].decode("ascii", "replace")
-                return name or None
+                out["sni"] = hs[p + 5:p + 5 + name_len].decode("ascii", "replace") or None
+            elif etype == EXT_ECH:
+                out["ech"] = True
+            elif etype == EXT_ESNI:
+                out["esni"] = True
             p += elen
     except (IndexError, struct.error):
-        return None
-    return None
+        pass
+    return out
+
+
+def _extract_sni(hs: bytes) -> str | None:
+    """(호환용) ClientHello 의 평문 SNI 만 돌려준다."""
+    return client_hello_info(hs)["sni"]
+
+
+def tls_name_text(t: dict) -> str:
+    """기술 정보 줄에 붙일 SNI/ECH/ESNI 설명."""
+    sni = t.get("sni")
+    if t.get("ech_status") == "public_name":
+        return f" ECH 사용 · 공개 이름={sni} (실제 도메인은 암호화됨)"
+    if t.get("esni"):
+        return " ESNI 사용 (실제 도메인은 암호화됨)" + (f" · 평문 SNI={sni}" if sni else "")
+    s = f" SNI={sni}" if sni else ""
+    if t.get("ech"):
+        s += " [ECH 확장 있음: 실제 ECH라면 이 이름은 공개 이름일 수 있음]"
+    return s
 
 
 def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set[str] | None = None,
@@ -230,8 +272,7 @@ def technical_info(r: dict) -> str:
         if r.get("tls"):
             t = r["tls"]
             s += f" · TLS {t.get('content_type')}"
-            if t.get("sni"):
-                s += f" SNI={t['sni']}"
+            s += tls_name_text(t)
         return s
     if p == "UDP":
         s = f"{r['sport']} → {r['dport']} Len={r['udp_len']}"
@@ -255,8 +296,11 @@ def friendly_summary(r: dict, local_ips: set[str]) -> str:
     if p == "TCP":
         f = _canon_flags(r.get("flags") or "")
         action = terms.TCP_FLAG_FRIENDLY.get(f, "데이터 주고받기")
-        if r.get("tls", {}) and r["tls"].get("sni"):
-            return f"{r['tls']['sni']} 사이트에 암호화 연결을 시작해요 ({svc})"
+        t = r.get("tls") or {}
+        if t.get("ech_status") == "public_name" or (t.get("esni") and not t.get("sni")):
+            return f"암호화 연결을 시작해요 · 실제 사이트 이름은 숨겨져 있어요(ECH/ESNI) ({svc})"
+        if t.get("sni"):
+            return f"{t['sni']} 사이트에 암호화 연결을 시작해요 ({svc})"
         return f"{svc} · {action}"
     if p == "UDP":
         if r.get("dns_qname"):
@@ -314,10 +358,20 @@ def dissect(raw: bytes, first_layer: str) -> dict:
                     else:
                         note = ("TLS 연결 설정(핸드셰이크) 과정이에요. 접속 도메인(SNI) 같은 일부 정보는 평문이지만, "
                                 "연결이 맺어진 뒤 주고받는 실제 내용은 암호화되어 볼 수 없어요.")
+                    labels = {"content_type": "TLS 레코드 종류", "version": "레코드 계층 버전(호환용 표기)", "length": "레코드 길이",
+                              "handshake": "핸드셰이크", "sni": "접속 도메인(SNI, 평문)", "ech": "ECH 확장(Encrypted Client Hello)",
+                              "ech_status": "ECH 판정", "esni": "ESNI 확장(Encrypted SNI)"}
+                    descs = {"ech": "실제 접속 도메인을 암호화해 보내는 기능이에요. 브라우저는 ECH를 쓰지 않을 때도 가짜(GREASE) ECH 확장을 붙이므로, "
+                                    "이 확장만으로 실제 ECH 사용 여부를 확정할 수 없어요.",
+                             "esni": "ECH 이전의 실험적 방식으로, 실제 접속 도메인이 암호화되어 있어요."}
+                    values = {"public_name": "실제 ECH 사용 (SNI는 공개 이름이고 진짜 도메인은 암호화됨)",
+                              "present": "확정 불가 (실제 ECH 또는 가짜 GREASE ECH)"}
+                    if tls.get("ech_status") == "public_name":
+                        labels["sni"] = "공개 이름(ECH 바깥 SNI, 실제 도메인 아님)"
                     for k, v in tls.items():
-                        fields.append({"name": f"tls.{k}", "label": {"content_type": "TLS 레코드 종류", "version": "레코드 계층 버전(호환용 표기)",
-                                       "length": "레코드 길이", "handshake": "핸드셰이크", "sni": "접속 도메인(SNI, 평문)"}.get(k, k),
-                                       "value": str(v), "desc": ""})
+                        fields.append({"name": f"tls.{k}", "label": labels.get(k, k),
+                                       "value": values.get(v, "있음" if v is True else str(v)) if k in ("ech_status", "ech", "esni") else str(v),
+                                       "desc": descs.get(k, "")})
             fields.append({"name": "length", "label": "데이터 크기", "value": f"{len(data)} 바이트", "desc": ""})
             preview = data[:64]
             if not note:

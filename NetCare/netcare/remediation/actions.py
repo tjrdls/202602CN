@@ -117,7 +117,9 @@ class ActionManager:
             ctx = self.ctx()
             blocked_reason = system.protection_reason(ip, {**ctx, "whitelist": self.cfg().detection.whitelist})
             if not self.fw.available():
-                blocked_reason = blocked_reason or "이 운영체제에서는 자동 방화벽 조치를 지원하지 않아요."
+                import os
+                blocked_reason = blocked_reason or ("도커 컨테이너에서는 호스트 방화벽을 바꾸지 않아요. 차단이 필요하면 호스트에서 직접 실행해 주세요."
+                                                    if os.environ.get("NETCARE_CONTAINER") == "1" else "이 운영체제에서는 자동 방화벽 조치를 지원하지 않아요.")
             if not blocked_reason:
                 commands = self.fw.block_script(ip)
                 if terms.ip_scope(ip) == "local":

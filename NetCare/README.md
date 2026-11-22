@@ -37,6 +37,36 @@ Wireshark 수준의 패킷 분석을 누구나 이해할 수 있는 화면으로
 
 ## 1. 빠른 시작
 
+### 방법 A. 도커로 실행 (권장 · 설치할 것은 Docker 하나)
+
+파이썬, 라이브러리, 캡처 도구, 한글 글꼴이 모두 들어 있는 이미지를 받아 바로 실행합니다. `main`에 올라온 코드는 GitHub Actions가 테스트를 통과한 뒤 자동으로 이미지(amd64·arm64)를 만들어 배포합니다.
+
+```bash
+docker run -d --name netcare -p 127.0.0.1:8765:8765 -v netcare-data:/data ghcr.io/tjrdls/netcare:latest
+# 브라우저에서 http://127.0.0.1:8765
+docker logs -f netcare        # 로그 보기
+docker rm -f netcare          # 종료 (기록은 netcare-data 볼륨에 남음)
+```
+
+**Linux에서 이 컴퓨터의 실제 인터페이스를 캡처하려면** 호스트 네트워크와 캡처 권한을 줍니다.
+
+```bash
+docker run -d --name netcare --network host --cap-add NET_RAW --cap-add NET_ADMIN \
+  -e NETCARE_HOST=127.0.0.1 -v netcare-data:/data ghcr.io/tjrdls/netcare:latest
+```
+
+저장소를 받았다면 `docker compose up -d`(기본) 또는 `docker compose --profile host-capture up -d netcare-host`(Linux 실제 캡처)로도 실행할 수 있습니다. 이미지를 직접 만들려면 `docker build -t netcare .`을 실행합니다.
+
+| 실행 환경 | 되는 것 | 안 되는 것 |
+|---|---|---|
+| Linux + `--network host` | 모든 기능 (실제 인터페이스 실시간 캡처 포함) | 방화벽 차단 조치 (컨테이너가 호스트 방화벽을 바꾸지 않도록 꺼 둠) |
+| macOS·Windows (Docker Desktop) | 파일 분석, 테스트 데이터, 실험실, 리포트, 컨테이너 내부 트래픽 캡처 | 이 컴퓨터의 Wi-Fi·유선 실시간 캡처 (Docker가 가상 머신 안에서 돌기 때문) → 방법 B 사용 |
+
+- 포트는 반드시 `127.0.0.1:8765:8765`처럼 **127.0.0.1에만** 공개하세요. `-p 8765:8765`로 열면 같은 네트워크의 다른 기기가 접근할 수 있습니다.
+- 기록(DB·설정)은 `/data` 볼륨에 저장되어 컨테이너를 지웠다 다시 만들어도 유지됩니다.
+
+### 방법 B. 파이썬으로 직접 실행 (macOS·Windows 실시간 캡처, 개발용)
+
 Python 3.10 이상이 필요합니다.
 
 ```bash
@@ -92,6 +122,7 @@ flowchart LR
 `capture/parser.py`가 Ethernet → IPv4/IPv6 → TCP/UDP/ICMP/ARP → DNS/TLS 순서로 필드를 꺼냅니다.
 - TCP: 플래그(SYN/ACK/RST/FIN), SEQ/ACK, 윈도우 크기 / IP: TTL, 출발지·목적지 / DNS: 질의 ID·이름·응답 코드·답변
 - TLS: 암호화되지 않은 ClientHello의 **SNI(접속하려는 도메인)** 만 읽습니다. **HTTPS 본문은 복호화하지 않으며 볼 수 없습니다.**
+- **ECH·ESNI**: 실제 도메인을 암호화하는 ECH(Encrypted Client Hello)·ESNI 확장을 감지합니다. 바깥 SNI가 ECH 공개 이름(예: `cloudflare-ech.com`)이면 "ECH 사용 · 실제 도메인은 암호화됨"으로 표시하고 그 이름을 목적지로 단정하지 않습니다. 브라우저는 ECH를 쓰지 않을 때도 가짜(GREASE) ECH 확장을 붙이므로, 그 밖의 경우에는 "ECH 확장 있음(확정 불가)"으로만 표시합니다. 암호화된 실제 도메인은 복호화하지 않습니다.
 - 각 필드에 한국어 설명을 붙이고(`analysis/terms.py`), 화면용 쉬운 문장("내 컴퓨터 → github.com 으로 보안 웹 접속")을 만듭니다.
 - 방향(업로드/다운로드)은 내 컴퓨터의 IP·MAC 목록을 기준으로 판단합니다.
 
@@ -455,7 +486,7 @@ sequenceDiagram
 - 관리자 권한이 필요하면 몰래 실행하지 않고 직접 실행할 명령을 보여 줍니다.
 - 테스트 데이터와 실험실에서 나온 징후로는 시스템을 바꾸지 않습니다.
 - 로컬 API 보호: Host 헤더 검사(DNS 리바인딩 방지), 변경 요청에 커스텀 헤더 `X-NetCare: 1` 필수(CSRF 방지).
-- HTTPS 본문은 복호화하지 않습니다. 볼 수 있는 것은 헤더와 평문 SNI뿐입니다.
+- HTTPS 본문은 복호화하지 않습니다. 볼 수 있는 것은 헤더와 평문 SNI뿐이며, ECH로 숨긴 도메인도 복호화하지 않습니다.
 - **내가 관리하는 네트워크에서만 사용하세요.** NetCare는 진단과 방어를 위한 도구입니다.
 
 ---
@@ -463,7 +494,7 @@ sequenceDiagram
 ## 10. 테스트
 
 ```bash
-.venv/bin/python -m pytest -q          # 단위·통합 테스트 64개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
+.venv/bin/python -m pytest -q          # 단위·통합 테스트 69개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
 # UI E2E(71개 항목, 크롬 필요)는 기록을 만들므로 별도 데이터 폴더의 서버에서 실행
 NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 8771 &
 .venv/bin/python scripts/ui_e2e.py --base http://127.0.0.1:8771
@@ -473,6 +504,7 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 |---|---|
 | `test_parser.py` | 계층별 필드 해석, 방향 판단 |
 | `test_detection.py` | 기본 규칙과 테스트 시나리오별 기대 탐지, 오탐 완화 |
+| `test_tls_ech.py` | TLS SNI·ECH·ESNI 판정, 잘린 ClientHello 처리 |
 | `test_rules_v2.py` | 확장 규칙 3종, 규칙 카탈로그 22종, 엔진 종료 정리, DNS-SD 오탐 회귀 |
 | `test_api.py` | API, Host·CSRF 보호, pcap 가져오기, 조치 안전 규칙, 설정 검증, 리포트·내보내기 |
 | `test_remediation_health.py` | 조치 승인·롤백, 보호 주소 차단 거부, 상태 점수 |
@@ -488,6 +520,7 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 NetCare/
 ├── run.py                     실행 진입점
 ├── requirements.txt
+├── Dockerfile · docker-compose.yml   도커 이미지·실행 구성
 ├── netcare/
 │   ├── config.py              설정(임계값 등) — data/config.json
 │   ├── capture/               interfaces · parser · engine
@@ -514,6 +547,7 @@ NetCare/
 
 - 탐지는 **내 컴퓨터가 보는 패킷**만 근거로 합니다. 스위치 환경에서는 다른 장치끼리의 통신이 보이지 않습니다.
 - 스푸핑은 패킷만으로 확정할 수 없어 '의심'까지만 판단합니다.
-- 암호화된 내용(HTTPS·QUIC 본문)은 분석하지 않습니다.
+- 암호화된 내용(HTTPS·QUIC 본문)은 분석하지 않습니다. QUIC(UDP 443) 연결은 접속 도메인(SNI)도 아직 읽지 못합니다.
+- 도커(macOS·Windows)에서는 호스트의 실제 인터페이스를 캡처할 수 없습니다.
 - 실험실 결과는 합성 데이터 기준이며 실제 환경의 성능을 보장하지 않습니다.
 - 그 밖에 검증하지 못한 항목은 [docs/02_테스트_결과.md](docs/02_테스트_결과.md)와 [docs/06_고도화_계획.md](docs/06_고도화_계획.md)의 "한계"에 정리했습니다.

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import platform
 import sys
 import threading
@@ -42,8 +43,8 @@ def check_capture_permission() -> str | None:
 
 def main():
     ap = argparse.ArgumentParser(description="NetCare - 초보자 친화형 네트워크 분석기")
-    ap.add_argument("--host", default="127.0.0.1", help="기본값 127.0.0.1 (보안상 외부 접속을 막아요)")
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--host", default=os.environ.get("NETCARE_HOST", "127.0.0.1"), help="기본값 127.0.0.1 (보안상 외부 접속을 막아요)")
+    ap.add_argument("--port", type=int, default=int(os.environ.get("NETCARE_PORT", "8765")))
     ap.add_argument("--no-browser", action="store_true", help="브라우저를 자동으로 열지 않음")
     ap.add_argument("--debug", action="store_true")
     args = ap.parse_args()
@@ -51,7 +52,11 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-    if args.host not in ("127.0.0.1", "localhost", "::1"):
+    in_container = os.environ.get("NETCARE_CONTAINER") == "1"
+    if in_container and args.host not in ("127.0.0.1", "localhost", "::1"):
+        print("ℹ️  컨테이너 안에서는 0.0.0.0 에 연결해요. 호스트에서는 반드시 -p 127.0.0.1:8765:8765 처럼 "
+              "127.0.0.1 에만 공개하세요 (같은 네트워크의 다른 기기가 접근하지 못하도록).")
+    elif args.host not in ("127.0.0.1", "localhost", "::1"):
         print("⚠️  127.0.0.1 이외의 주소에 연결하면 같은 네트워크의 다른 사람이 방화벽 조치 API 에 접근할 수 있어요. "
               "NetCare 는 로컬 전용으로 설계되었기 때문에 Host 검사로 외부 요청을 거부합니다.")
 
@@ -62,7 +67,10 @@ def main():
     msg = check_capture_permission()
     url = f"http://127.0.0.1:{args.port}"
     print("\n  NetCare 가 시작됐어요 →", url)
-    print("  관리자 권한:", "있음 (방화벽 조치 가능)" if is_admin() else "없음 (방화벽 조치 시 암호 입력 또는 안내)")
+    if in_container:
+        print("  실행 환경: 도커 컨테이너 (방화벽 조치는 꺼져 있어요)")
+    else:
+        print("  관리자 권한:", "있음 (방화벽 조치 가능)" if is_admin() else "없음 (방화벽 조치 시 암호 입력 또는 안내)")
     if msg:
         print("  안내:", msg)
     print("  종료하려면 Ctrl+C\n")

@@ -8,10 +8,11 @@ The [`NetCare/`](NetCare/) folder contains **NetCare**, a beginner-friendly real
 See [NetCare/README.md](NetCare/README.md) (Korean) for how it works, the system architecture, the 22 detection rules, and the attack lab.
 
 ```bash
-cd NetCare
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python run.py   # opens http://127.0.0.1:8765
+docker run -d --name netcare -p 127.0.0.1:8765:8765 -v netcare-data:/data ghcr.io/tjrdls/netcare:latest
+# then open http://127.0.0.1:8765
 ```
+
+The image is built and published automatically by GitHub Actions (`.github/workflows/netcare-docker.yml`) after the tests pass. To run from source instead: `cd NetCare && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/python run.py`.
 
 ## Presentation
 

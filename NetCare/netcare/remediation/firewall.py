@@ -12,8 +12,10 @@ pf 가 꺼져 있었다면 'pfctl -E' 로 참조 토큰을 받아 켜고, 롤백
 from __future__ import annotations
 
 import ipaddress
+import os
 import re
 import shlex
+import shutil
 
 from netcare.config import DATA_DIR
 from netcare.remediation.system import SYSTEM
@@ -111,7 +113,10 @@ class LinuxIptables(FirewallBackend):
     label = "Linux iptables"
 
     def available(self) -> bool:
-        return SYSTEM == "Linux"
+        # 도커 컨테이너에서는 호스트 방화벽을 바꾸지 않는다 (--network host 이면 호스트 규칙이 바뀔 수 있어 막아 둠)
+        if os.environ.get("NETCARE_CONTAINER") == "1":
+            return False
+        return SYSTEM == "Linux" and shutil.which("iptables") is not None
 
     @staticmethod
     def _bin(ip: str) -> str:

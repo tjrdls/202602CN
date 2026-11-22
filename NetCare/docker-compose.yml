@@ -1,0 +1,28 @@
+# 기본 실행: 어떤 OS에서든 동작 (파일 분석·테스트 데이터·실험실·컨테이너 안 캡처)
+#   docker compose up -d   →  http://127.0.0.1:8765
+# Linux에서 이 컴퓨터의 실제 인터페이스를 캡처하려면:
+#   docker compose --profile host-capture up -d netcare-host
+services:
+  netcare:
+    image: ghcr.io/tjrdls/netcare:latest
+    build: .
+    ports:
+      - "127.0.0.1:8765:8765"     # 반드시 127.0.0.1 에만 공개
+    volumes:
+      - netcare-data:/data
+    restart: unless-stopped
+
+  netcare-host:
+    profiles: ["host-capture"]
+    image: ghcr.io/tjrdls/netcare:latest
+    build: .
+    network_mode: host             # 호스트의 실제 인터페이스를 그대로 보기 (Linux 전용)
+    cap_add: [NET_RAW, NET_ADMIN]  # 패킷 캡처 권한
+    environment:
+      NETCARE_HOST: 127.0.0.1      # 호스트 네트워크를 쓰므로 127.0.0.1 에만 연결
+    volumes:
+      - netcare-data:/data
+    restart: unless-stopped
+
+volumes:
+  netcare-data:
