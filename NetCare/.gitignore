@@ -7,3 +7,8 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# 로컬 작업 파일 (발표자료 빌드·AI 작업 기록)
+.v3-build/
+.codex/
+.codex-finalizer/
