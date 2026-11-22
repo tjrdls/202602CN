@@ -87,6 +87,9 @@ jobs:
           mkdir -p in
           for d in art/bench-*; do c=${d#art/bench-}; mkdir -p in/$c; cp $d/*.json in/$c/ 2>/dev/null || true; done
           python NetCare/scripts/bench/report.py --in in --out NetCare/docs/benchmark
+          # 원자료도 남겨 채점 방식을 바꿔도 벤치마크를 다시 돌리지 않고 재계산할 수 있게 한다
+          mkdir -p NetCare/docs/benchmark/raw
+          for d in in/*; do c=$(basename $d); for f in $d/*.json; do gzip -c $f > NetCare/docs/benchmark/raw/${c}_$(basename $f).gz; done; done
           cat NetCare/docs/benchmark/cse-cic-ids2018.md >> $GITHUB_STEP_SUMMARY
       - name: Commit results
         run: |

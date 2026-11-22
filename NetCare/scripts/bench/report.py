@@ -134,15 +134,25 @@ def evaluate_case(res: dict, cs: list[dict] | None) -> dict:
         mins = {k: v for k, v in minutes.items() if k.startswith(f"{port}|")}
         if not mins:
             continue
-        times = sorted(_minute(k.split("|", 1)[1]) + timedelta(hours=off) for k in mins)
-        start, end = times[0].timestamp(), times[-1].timestamp() + 60
+        pts = sorted((_minute(k.split("|", 1)[1]) + timedelta(hours=off), v) for k, v in mins.items())
+        # 라벨에는 동떨어진 몇 줄(잡음)이 섞여 있으므로, 10분 넘게 끊기지 않는 가장 큰(흐름 수 기준) 연속 구간을 공격 구간으로 쓴다
+        clusters, cur = [], [pts[0]]
+        for p_ in pts[1:]:
+            if (p_[0] - cur[-1][0]).total_seconds() > 600:
+                clusters.append(cur)
+                cur = []
+            cur.append(p_)
+        clusters.append(cur)
+        main = max(clusters, key=lambda c: sum(v for _, v in c))
+        stray = sum(v for c in clusters if c is not main for _, v in c)
+        start, end = main[0][0].timestamp(), main[-1][0].timestamp() + 60
         srcs = Counter()
         for k, v in nc["syn_minutes"].items():
             p, m = k.split("|", 1)
             if int(p) == port and start <= _minute(m).timestamp() < end:
                 srcs.update(v)
         attacker = srcs.most_common(1)[0][0] if srcs else None
-        attacks.append({"label": lab, "family": fam, "port": port, "flows": labels["totals"].get(lab), "offset_h": off,
+        attacks.append({"label": lab, "family": fam, "port": port, "flows": labels["totals"].get(lab), "offset_h": off, "stray_flows": stray,
                         "start": start, "end": end, "attacker": attacker})
 
     def match(items, fam_key, kind):
@@ -170,7 +180,10 @@ def evaluate_case(res: dict, cs: list[dict] | None) -> dict:
     rows = []
     for at in attacks:
         h = sorted(nc_hits[at["label"]], key=lambda x: x["start"])
-        row = {**at, "netcare_detected": bool(h), "netcare_latency_sec": round(max(0, h[0]["start"] - at["start"]), 1) if h else None,
+        other = sorted({(i["scenario"] or i["type"]) for i in nc_items
+                        if i.get("src") == at["attacker"] and i["type"] in SECURITY_TYPES and i not in h
+                        and not (i["end"] < at["start"] - PAD or i["start"] > at["end"] + PAD)})
+        row = {**at, "netcare_other": other, "netcare_detected": bool(h), "netcare_latency_sec": round(max(0, h[0]["start"] - at["start"]), 1) if h else None,
                "netcare_scenarios": sorted({i["scenario"] or i["type"] for i in h}),
                "netcare_via_extension": bool(h) and all((i["scenario"] or "").startswith("ext_") for i in h)}
         if at["family"] == "ssh":
@@ -183,9 +196,12 @@ def evaluate_case(res: dict, cs: list[dict] | None) -> dict:
                        crowdsec_scenarios=sorted({i["scenario"] for i in c}))
         rows.append(row)
     attackers = {a["attacker"] for a in attacks}
-    nc_extra = [i for i in nc_items if id(i) not in used_nc and i["type"] in SECURITY_TYPES and i.get("src") not in attackers]
+    def in_some_window(i):
+        return any(i.get("src") == a["attacker"] and not (i["end"] < a["start"] - PAD or i["start"] > a["end"] + PAD) for a in attacks)
+    nc_extra = [i for i in nc_items if id(i) not in used_nc and i["type"] in SECURITY_TYPES and not in_some_window(i)]
     nc_other = Counter(i["type"] for i in nc_items if i["type"] not in SECURITY_TYPES)
-    cs_extra = [i for i in (cs or []) if i["src"] not in attackers] if cs is not None else None
+    used_cs = {id(i) for v in (cs_hits or {}).values() for i in v}
+    cs_extra = [i for i in (cs or []) if id(i) not in used_cs and not in_some_window(i)] if cs is not None else None
     hours = max(1e-9, ((nc["last_ts"] or 0) - (nc["first_ts"] or 0)) / 3600)
     return {"case": res["case"], "packets": nc["packets"], "capture_hours": round(hours, 2), "attacks": rows,
             "netcare_unlabeled": nc_extra, "netcare_nonsecurity": dict(nc_other), "crowdsec_unlabeled": cs_extra,
@@ -206,15 +222,17 @@ def render(cases: list[dict]) -> str:
            "- 데이터: [CSE-CIC-IDS2018](https://www.unb.ca/cic/datasets/ids-2018.html) (CIC·CSE, AWS 공개 버킷), 공격받은 서버의 호스트 캡처만 사용",
            "- 정답: 같은 데이터셋의 CICFlowMeter 라벨 CSV. 라벨 시각은 오전/오후 표시가 없는 12시간제라 01~06시를 오후로 고치고, pcap의 새 연결 분포와 맞춰 시간대를 정한 뒤 공격 구간·공격자 주소를 정했습니다.",
            "- NetCare 탐지 중 `ext_`로 시작하는 시나리오는 CrowdSec에 없는 NetCare 확장 조건(URL 디코딩 후 비교, SQL 문법, 로그인 반복)입니다.",
+           "- 공격 구간은 라벨의 가장 큰 연속 구간(10분 넘게 끊기지 않는 구간)입니다. 동떨어진 라벨 몇 줄은 잡음으로 보고 제외했습니다.",
+           "- '소요'는 공격 구간 시작부터 그 공격 종류에 맞는 첫 알림까지의 시간입니다.",
            "- SSH는 암호화되어 sshd 인증 실패 로그를 패킷으로 만들 수 없으므로 CrowdSec은 '측정 불가'입니다(실제 서버에서는 sshd 로그로 탐지 가능).", ""]
-    out += ["| 사례 | 공격(라벨) | 공격 구간(UTC) | 공격자 | NetCare | 소요 | NetCare 시나리오 | CrowdSec | 소요 | CrowdSec 시나리오 |",
-            "|---|---|---|---|---|---|---|---|---|---|"]
+    out += ["| 사례 | 공격(라벨) | 공격 구간(UTC) | 공격자 | NetCare | 소요 | NetCare 시나리오 | 같은 공격자의 다른 NetCare 알림 | CrowdSec | 소요 | CrowdSec 시나리오 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|"]
     for c in cases:
         for r in c["attacks"]:
             cs_s = ", ".join(r.get("crowdsec_scenarios") or []) or r.get("crowdsec_note", "-")
             out.append(f"| {c['case']['day']} | {r['label']} ({r['flows']:,}흐름) | {fmt_t(r['start'])}–{fmt_t(r['end'])} | {r['attacker']} | "
                        f"{mark(r['netcare_detected'])} | {r['netcare_latency_sec'] if r['netcare_latency_sec'] is not None else '-'}초 | "
-                       f"{', '.join(r['netcare_scenarios']) or '-'} | {mark(r.get('crowdsec_detected'))} | "
+                       f"{', '.join(r['netcare_scenarios']) or '-'} | {', '.join(r.get('netcare_other') or []) or '-'} | {mark(r.get('crowdsec_detected'))} | "
                        f"{r.get('crowdsec_latency_sec') if r.get('crowdsec_latency_sec') is not None else '-'}초 | {cs_s} |")
     out += ["", "## 라벨 밖 탐지 (공격 구간·공격자와 맞지 않는 보안 알림)", "",
             "라벨은 실험자가 낸 공격만 표시합니다. 인터넷에 열린 실험 서버라 실제 외부 스캐너·무차별 대입이 섞여 있으므로, 아래가 모두 오탐인 것은 아닙니다.", ""]
