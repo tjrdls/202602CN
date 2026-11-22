@@ -33,4 +33,4 @@
 - **Wednesday-14-02-2018**: 서버→클라이언트 TCP 플래그 {'RA': 193392}, 클라이언트→서버 {'S': 193392}, 서버 응답 코드 None
 - **Friday-23-02-2018**: 서버→클라이언트 TCP 플래그 {'RA': 4}, 클라이언트→서버 {'S': 3, 'SEC': 1}, 서버 응답 코드 None
 
-생성: 2026-11-22 14:46 UTC · 스크립트: `scripts/bench/cse_cic_ids2018.py`, `scripts/bench/report.py` · 워크플로: `.github/workflows/netcare-bench.yml`
+생성: 2026-11-22 18:23 UTC · 스크립트: `scripts/bench/cse_cic_ids2018.py`, `scripts/bench/report.py` · 워크플로: `.github/workflows/netcare-bench.yml`
