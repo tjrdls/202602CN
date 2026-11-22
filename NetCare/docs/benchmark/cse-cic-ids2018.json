@@ -1,0 +1,345 @@
+[
+ {
+  "case": {
+   "day": "Wednesday-14-02-2018",
+   "host": "172.31.69.25",
+   "csv": "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv",
+   "name": "ftp_ssh"
+  },
+  "packets": 4718328,
+  "capture_hours": 8.94,
+  "attacks": [
+   {
+    "label": "FTP-BruteForce",
+    "family": "ftp",
+    "port": 21,
+    "flows": 193360,
+    "offset_h": 4,
+    "start": 1518618780.0,
+    "end": 1518624660.0,
+    "attacker": "18.221.219.4",
+    "netcare_detected": false,
+    "netcare_latency_sec": null,
+    "netcare_scenarios": [],
+    "netcare_via_extension": false,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   },
+   {
+    "label": "SSH-Bruteforce",
+    "family": "ssh",
+    "port": 22,
+    "flows": 187589,
+    "offset_h": 4,
+    "start": 1518588060.0,
+    "end": 1518593580.0,
+    "attacker": null,
+    "netcare_detected": false,
+    "netcare_latency_sec": null,
+    "netcare_scenarios": [],
+    "netcare_via_extension": false,
+    "crowdsec_detected": null,
+    "crowdsec_note": "sshd 로그 필요 (패킷으로 만들 수 없음) → 측정 불가"
+   }
+  ],
+  "netcare_unlabeled": [
+   {
+    "type": "web_attack",
+    "src": "120.76.195.219",
+    "scenario": "http_admin_probing",
+    "start": 1518612437,
+    "end": 1518612452,
+    "severity": "warning",
+    "dst": "172.31.69.25",
+    "port": 80,
+    "crowdsec": "crowdsecurity/http-admin-interface-probing",
+    "certainty": "measured"
+   },
+   {
+    "type": "web_scan",
+    "src": "120.76.195.219",
+    "scenario": "http_probing",
+    "start": 1518612441,
+    "end": 1518612452,
+    "severity": "warning",
+    "dst": "172.31.69.25",
+    "port": 80,
+    "crowdsec": "crowdsecurity/http-probing",
+    "certainty": "measured"
+   },
+   {
+    "type": "ip_packet_flood",
+    "src": "52.219.80.154",
+    "scenario": "",
+    "start": 1518624988,
+    "end": 1518624988,
+    "severity": "warning",
+    "dst": "172.31.69.25",
+    "port": null,
+    "crowdsec": null,
+    "certainty": null
+   },
+   {
+    "type": "ip_packet_flood",
+    "src": "172.31.69.25",
+    "scenario": "",
+    "start": 1518624988,
+    "end": 1518624988,
+    "severity": "info",
+    "dst": "52.219.80.154",
+    "port": null,
+    "crowdsec": null,
+    "certainty": null
+   },
+   {
+    "type": "repeated_connection",
+    "src": "13.58.98.64",
+    "scenario": "",
+    "start": 1518631286,
+    "end": 1518636750,
+    "severity": "warning",
+    "dst": "172.31.69.25",
+    "port": 21,
+    "crowdsec": null,
+    "certainty": null
+   },
+   {
+    "type": "auth_bruteforce",
+    "src": "13.58.98.64",
+    "scenario": "ssh_bf",
+    "start": 1518631311,
+    "end": 1518636758,
+    "severity": "warning",
+    "dst": "172.31.69.25",
+    "port": 22,
+    "crowdsec": "crowdsecurity/ssh-bf",
+    "certainty": "suspected"
+   },
+   {
+    "type": "ip_packet_flood",
+    "src": "13.58.98.64",
+    "scenario": "",
+    "start": 1518631318,
+    "end": 1518636750,
+    "severity": "info",
+    "dst": "172.31.69.25",
+    "port": null,
+    "crowdsec": null,
+    "certainty": null
+   },
+   {
+    "type": "ip_packet_flood",
+    "src": "172.31.69.25",
+    "scenario": "",
+    "start": 1518631319,
+    "end": 1518636750,
+    "severity": "info",
+    "dst": "52.219.80.154",
+    "port": null,
+    "crowdsec": null,
+    "certainty": null
+   },
+   {
+    "type": "syn_surge",
+    "src": "13.58.98.64",
+    "scenario": "",
+    "start": 1518631345,
+    "end": 1518636747,
+    "severity": "info",
+    "dst": null,
+    "port": null,
+    "crowdsec": null,
+    "certainty": null
+   }
+  ],
+  "netcare_nonsecurity": {
+   "port_concentration": 2
+  },
+  "crowdsec_unlabeled": [
+   {
+    "scenario": "crowdsecurity/http-probing",
+    "src": "120.76.195.219",
+    "start": 1518612435.0,
+    "end": 1518612440.0,
+    "events": 11
+   },
+   {
+    "scenario": "crowdsecurity/http-admin-interface-probing",
+    "src": "120.76.195.219",
+    "start": 1518612435.0,
+    "end": 1518612436.0,
+    "events": 3
+   }
+  ],
+  "crowdsec_alerts": 2,
+  "log_counts": {
+   "http_req": 35,
+   "http_logged": 35,
+   "http_unpaired": 0
+  }
+ },
+ {
+  "case": {
+   "day": "Thursday-22-02-2018",
+   "host": "172.31.69.28",
+   "csv": "Thursday-22-02-2018_TrafficForML_CICFlowMeter.csv",
+   "name": "web_thu"
+  },
+  "packets": 47715,
+  "capture_hours": 9.08,
+  "attacks": [
+   {
+    "label": "Brute Force -Web",
+    "family": "web",
+    "port": 80,
+    "flows": 249,
+    "offset_h": 4,
+    "start": 1519308780.0,
+    "end": 1519313040.0,
+    "attacker": "18.218.115.60",
+    "netcare_detected": true,
+    "netcare_latency_sec": 342.0,
+    "netcare_scenarios": [
+     "ext_http_login_bf"
+    ],
+    "netcare_via_extension": true,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   },
+   {
+    "label": "Brute Force -XSS",
+    "family": "web",
+    "port": 80,
+    "flows": 79,
+    "offset_h": 4,
+    "start": 1519278660.0,
+    "end": 1519280940.0,
+    "attacker": null,
+    "netcare_detected": false,
+    "netcare_latency_sec": null,
+    "netcare_scenarios": [],
+    "netcare_via_extension": false,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   },
+   {
+    "label": "SQL Injection",
+    "family": "web",
+    "port": 80,
+    "flows": 34,
+    "offset_h": 4,
+    "start": 1519278720.0,
+    "end": 1519312200.0,
+    "attacker": "18.218.115.60",
+    "netcare_detected": false,
+    "netcare_latency_sec": null,
+    "netcare_scenarios": [],
+    "netcare_via_extension": false,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   }
+  ],
+  "netcare_unlabeled": [
+   {
+    "type": "auth_bruteforce",
+    "src": "199.195.249.132",
+    "scenario": "ssh_bf",
+    "start": 1519325315,
+    "end": 1519325498,
+    "severity": "warning",
+    "dst": "172.31.69.28",
+    "port": 22,
+    "crowdsec": "crowdsecurity/ssh-bf",
+    "certainty": "suspected"
+   }
+  ],
+  "netcare_nonsecurity": {
+   "tcp_loss": 1
+  },
+  "crowdsec_unlabeled": [],
+  "crowdsec_alerts": 0,
+  "log_counts": {
+   "http_req": 10794,
+   "http_logged": 10794,
+   "http_unpaired": 0
+  }
+ },
+ {
+  "case": {
+   "day": "Friday-23-02-2018",
+   "host": "172.31.69.28",
+   "csv": "Friday-23-02-2018_TrafficForML_CICFlowMeter.csv",
+   "name": "web_fri"
+  },
+  "packets": 55102,
+  "capture_hours": 9.2,
+  "attacks": [
+   {
+    "label": "Brute Force -Web",
+    "family": "web",
+    "port": 80,
+    "flows": 362,
+    "offset_h": 4,
+    "start": 1519394640.0,
+    "end": 1519398180.0,
+    "attacker": "18.218.115.60",
+    "netcare_detected": true,
+    "netcare_latency_sec": 44.0,
+    "netcare_scenarios": [
+     "ext_http_login_bf"
+    ],
+    "netcare_via_extension": true,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   },
+   {
+    "label": "Brute Force -XSS",
+    "family": "web",
+    "port": 80,
+    "flows": 151,
+    "offset_h": 4,
+    "start": 1519362060.0,
+    "end": 1519366260.0,
+    "attacker": null,
+    "netcare_detected": false,
+    "netcare_latency_sec": null,
+    "netcare_scenarios": [],
+    "netcare_via_extension": false,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   },
+   {
+    "label": "SQL Injection",
+    "family": "web",
+    "port": 80,
+    "flows": 53,
+    "offset_h": 4,
+    "start": 1519369500.0,
+    "end": 1519397640.0,
+    "attacker": "18.218.115.60",
+    "netcare_detected": false,
+    "netcare_latency_sec": null,
+    "netcare_scenarios": [],
+    "netcare_via_extension": false,
+    "crowdsec_detected": false,
+    "crowdsec_latency_sec": null,
+    "crowdsec_scenarios": []
+   }
+  ],
+  "netcare_unlabeled": [],
+  "netcare_nonsecurity": {},
+  "crowdsec_unlabeled": [],
+  "crowdsec_alerts": 0,
+  "log_counts": {
+   "http_req": 13591,
+   "http_logged": 13591,
+   "http_unpaired": 0
+  }
+ }
+]
