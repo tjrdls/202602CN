@@ -66,7 +66,7 @@ class AdvancedDetector:
         self.secs: dict[int, _Sec] = {}
         self.arp_seen: dict[str, dict[str, float]] = defaultdict(dict)   # ip → {mac: 마지막 시각}
         self.arp_pending: dict[str, float] = {}                           # 누군가 물어본 IP → 시각
-        self.ttl_hist: dict[str, Counter] = {}
+        self.ttl_hist: dict[tuple, Counter] = {}   # (출발지, 프로토콜) → TTL 분포
         self.out_syn: dict[tuple, float] = {}       # 내가 보낸 SYN 흐름 → 시각
         self.syn_count: Counter = Counter()          # 흐름별 SYN 횟수 (재전송된 SYN 은 RTT 표본 제외: Karn)
         self.in_synack_for_server: dict[tuple, float] = {}  # 내가 서버일 때 SYN-ACK 보낸 시각
@@ -199,12 +199,15 @@ class AdvancedDetector:
                 b.spoof.append(("lan_mac_mismatch", src, smac))
                 return
         # ④ 같은 출발지의 평소 TTL 과 크게 다름
+        # 프로토콜별로 따로 본다: 같은 서버라도 TCP 와 UDP(QUIC)를 서로 다른 장비·스택이 처리해 TTL 이 다를 수 있다
+        # (실측: Google 서버 TCP TTL 116~117, QUIC TTL 53~54 → 합쳐서 보면 '위조 의심' 오탐)
         ttl = r.get("ttl")
         if ttl is not None and terms.ip_scope(src) == "public":
-            h = self.ttl_hist.get(src)
+            hk = (src, r.get("proto"))
+            h = self.ttl_hist.get(hk)
             if h is None:
                 if len(self.ttl_hist) < 20000:
-                    self.ttl_hist[src] = Counter({ttl: 1})
+                    self.ttl_hist[hk] = Counter({ttl: 1})
             else:
                 total = sum(h.values())
                 common, cnt = h.most_common(1)[0]

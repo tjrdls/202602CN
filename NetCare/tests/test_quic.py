@@ -156,3 +156,12 @@ def test_zero_length_cids_use_address_pair():
     srv = protect(b"\x02\x00\x00\x00\x00" + crypto(0, server_hello(group=0x001D, key_bytes=32)), b"", os.urandom(8), server=True, key_dcid=DCID)
     r = q.datagram(srv, 1.01, flow=(flow[2], flow[3], flow[0], flow[1]))
     assert r and r[0]["event"] == "server_hello" and r[0]["server_hello"]["group"] == "x25519"
+
+
+def test_server_initial_without_seen_client_initial_is_limited_not_failed():
+    """캡처 시작 전에 시작된 연결: 서버 Initial 만 보이면 복호화 실패가 아니라 '분석 제한'."""
+    q = QuicAnalyzer()
+    srv = protect(b"\x02\x00\x00\x00\x00" + crypto(0, server_hello(group=0x001D, key_bytes=32)), os.urandom(8), os.urandom(8),
+                  server=True, key_dcid=os.urandom(8))
+    r = q.datagram(srv, 1.0, flow=("203.0.113.9", 443, "10.0.0.2", 55002))
+    assert r[0]["event"] == "server_unmatched" and r[0]["status"] == LIMITED and q.stats["decrypt_failed"] == 0

@@ -552,7 +552,7 @@ sequenceDiagram
 ## 11. 테스트
 
 ```bash
-.venv/bin/python -m pytest -q          # 단위·통합 테스트 122개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
+.venv/bin/python -m pytest -q          # 단위·통합 테스트 133개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
 # UI E2E(71개 항목, 크롬 필요)는 기록을 만들므로 별도 데이터 폴더의 서버에서 실행
 NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 8771 &
 .venv/bin/python scripts/ui_e2e.py --base http://127.0.0.1:8771
@@ -562,7 +562,7 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 |---|---|
 | `test_parser.py` | 계층별 필드 해석, 방향 판단 |
 | `test_detection.py` | 기본 규칙과 테스트 시나리오별 기대 탐지, 오탐 완화 |
-| `test_tls_reassembly.py` · `test_quic.py` · `test_encrypted_analyzer.py` | ClientHello 완전 해석, TCP 재조립(순서·중복·겹침·누락), QUIC Initial(RFC 테스트 벡터·분할·새 CID), ECH 상태 분리, DNS 종류, pcap→엔진→API |
+| `test_tls_reassembly.py` · `test_quic.py` · `test_encrypted_analyzer.py` · `test_encrypted_robustness.py` | ClientHello 완전 해석, TCP 재조립(순서·중복·겹침·누락), QUIC Initial(RFC 테스트 벡터·분할·새 CID), ECH 상태 분리, DNS 종류, pcap→엔진→API |
 | `test_crowdsec_compat.py` | HTTP 파싱, CrowdSec leaky bucket 의미, SQLi·Log4Shell·탐색·FTP·SSH·다중 포트 스캔, 확장(디코딩 XSS·수동 SQLi·웹 로그인), 정상 사용 오탐 방지 |
 | `test_integrity.py` | 체크섬 비트 변조, TCP RST·데이터 주입, RTP·설정 프로토콜 재전송, 정상 종료·송신 패킷 오탐 방지 |
 | `test_tls_ech.py` | TLS SNI·ECH·ESNI 판정, 잘린 ClientHello 처리 |
@@ -571,7 +571,7 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 | `test_remediation_health.py` | 조치 승인·롤백, 보호 주소 차단 거부, 상태 점수 |
 | `test_simlab.py` | 시나리오별 기대 탐지, 정상 기준선 오탐 0, 실험실 분리(실제 DB 변화 없음·전송 함수 없음·시스템 명령 없음), 재현성, 평가 지표 손계산 비교, 실제 네트워크 오탐 회귀 |
 
-결과 보고: [docs/02_테스트_결과.md](docs/02_테스트_결과.md) · 실험실: [docs/05_시뮬레이션랩_결과.md](docs/05_시뮬레이션랩_결과.md) · 고도화: [docs/06_고도화_계획.md](docs/06_고도화_계획.md)
+종합 검증(탐지 성능·장시간 캡처·안정성·CrowdSec 비교 조건): [docs/08_종합_검증_보고서.md](docs/08_종합_검증_보고서.md) · 결과 보고: [docs/02_테스트_결과.md](docs/02_테스트_결과.md) · 실험실: [docs/05_시뮬레이션랩_결과.md](docs/05_시뮬레이션랩_결과.md) · 고도화: [docs/06_고도화_계획.md](docs/06_고도화_계획.md)
 
 ---
 

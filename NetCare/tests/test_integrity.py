@@ -147,3 +147,28 @@ def test_new_rules_in_catalog_with_thresholds():
     for t in ("checksum_error", "tcp_injection", "udp_replay"):
         assert rs[t]["certainty"] == "suspected" and rs[t]["category_label"] == "패킷 무결성"
     assert "5" in rs["checksum_error"]["condition"]
+
+
+def test_regression_google_tcp_vs_quic_ttl_is_not_spoofing():
+    """실측 오탐(1시간 캡처): 같은 Google 서버가 TCP 는 TTL 117, QUIC(UDP) 는 TTL 53 으로 온다."""
+    d = det()
+    g = "142.251.154.119"
+    for i in range(20):
+        d.observe(rec_of(eth_in() / IP(src=g, dst=ME, ttl=117) / TCP(sport=443, dport=50000, flags="A", seq=i), T0 + i * 0.1))
+    for i in range(20):
+        d.observe(rec_of(eth_in() / IP(src=g, dst=ME, ttl=53) / UDP(sport=443, dport=50001) / Raw(b"\x41" + b"q" * 40), T0 + 2 + i * 0.1))
+    assert "ip_spoof_suspect" not in types(d.evaluate(T0 + 6))
+    d = det()                                  # 같은 프로토콜 안에서 TTL 이 크게 바뀌면 여전히 징후로 센다
+    for i in range(20):
+        d.observe(rec_of(eth_in() / IP(src=g, dst=ME, ttl=117) / TCP(sport=443, dport=50000, flags="A", seq=i), T0 + i * 0.1))
+    for i in range(8):
+        d.observe(rec_of(eth_in() / IP(src=g, dst=ME, ttl=60) / TCP(sport=443, dport=50000, flags="A", seq=100 + i), T0 + 2 + i * 0.1))
+    assert d.adv.secs and any(e[0] == "ttl" for b in d.adv.secs.values() for e in b.spoof)
+
+
+def test_regression_broadcast_discovery_is_not_rtp_replay():
+    """실측 오탐: LAN 방송 탐색 패킷(같은 내용 반복)을 RTP 재전송으로 오인."""
+    d = det()
+    for i in range(30):
+        d.observe(rec_of(eth_in() / IP(src="172.16.101.47", dst="172.16.101.255") / UDP(sport=55367, dport=58581) / Raw(rtp(4097, 0)), T0 + i * 0.2))
+    assert "udp_replay" not in types(d.evaluate(T0 + 7))

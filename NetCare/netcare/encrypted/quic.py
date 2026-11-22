@@ -23,6 +23,7 @@ LABELS = {V1: ("quic key", "quic iv", "quic hp"), DRAFT29: ("quic key", "quic iv
           V2: ("quicv2 key", "quicv2 iv", "quicv2 hp")}
 VERSION_NAMES = {V1: "QUIC v1 (RFC 9000)", V2: "QUIC v2 (RFC 9369)", DRAFT29: "QUIC draft-29", 0: "버전 협상"}
 MAX_CONNS = 4096
+SERVER_PORTS = {443, 853, 8443, 784}
 
 
 def version_name(v: int) -> str:
@@ -91,14 +92,25 @@ def parse_long_header(d: bytes) -> dict | None:
     version = struct.unpack("!I", d[1:5])[0]
     p = 5
     dl = d[p]
+    if dl > 20 or p + 1 + dl >= len(d):
+        return None                                 # 잘렸거나 형식이 틀린 패킷
     dcid = d[p + 1:p + 1 + dl]
     p += 1 + dl
     sl = d[p]
+    if sl > 20 or p + 1 + sl > len(d):
+        return None
     scid = d[p + 1:p + 1 + sl]
     p += 1 + sl
-    if dl > 20 or sl > 20 or p > len(d):
-        return None
     return {"version": version, "dcid": dcid, "scid": scid, "hdr_end": p, "fixed_bit": bool(d[0] & 0x40)}
+
+
+def _packet_size(d: bytes, h: dict) -> int:
+    """Initial 패킷 하나의 전체 길이 (복호화 없이)."""
+    p = h["hdr_end"]
+    tok_len, p = _varint(d, p)
+    p += tok_len
+    length, p = _varint(d, p)
+    return min(len(d), p + length)
 
 
 def decrypt_initial(d: bytes, keys: dict, version: int) -> tuple[bytes, int, int]:
@@ -196,7 +208,7 @@ class QuicAnalyzer:
         self.by_server_cid: dict[bytes, bytes] = {}               # 서버가 정한 SCID → 원래 DCID (클라이언트의 이후 Initial 용)
         self.by_flow: dict[tuple, bytes] = {}                     # (주소·포트 쌍) → 원래 DCID (CID 가 비어 있거나 겹칠 때)
         self.stats = {"datagrams": 0, "initial": 0, "decrypted": 0, "decrypt_failed": 0, "unsupported": 0, "hello_ok": 0,
-                      "server_hello_ok": 0, "short_header": 0, "version_negotiation": 0, "crypto_incomplete": 0}
+                      "server_hello_ok": 0, "short_header": 0, "version_negotiation": 0, "crypto_incomplete": 0, "server_unmatched": 0}
 
     def datagram(self, d: bytes, ts: float, flow: tuple | None = None) -> list[dict]:
         """QUIC 일 수 있는 UDP 페이로드 하나. 새로 나온 분석 결과 목록을 돌려준다."""
@@ -248,6 +260,13 @@ class QuicAnalyzer:
         if (odcid is None or odcid not in self.conns) and fkey is not None and flow and self.by_flow.get(fkey) in self.conns \
                 and self.conns[self.by_flow[fkey]].client_port != flow[1]:
             odcid = self.by_flow[fkey]
+        from_server = bool(flow) and flow[1] in SERVER_PORTS and flow[3] not in SERVER_PORTS
+        if from_server and (odcid is None or odcid not in self.conns):
+            # 서버가 보낸 Initial 인데 이 연결의 첫 클라이언트 Initial 을 보지 못함 → 키를 만들 '원래 DCID' 를 모름.
+            # 클라이언트 키로 풀려고 하면 반드시 실패하므로 시도하지 않고 '분석 제한'으로 표시한다.
+            self.stats["server_unmatched"] += 1
+            return {"event": "server_unmatched", "status": LIMITED, "version": version_name(v), "dcid": dcid.hex(),
+                    "note": "서버의 Initial 이지만 같은 연결의 첫 클라이언트 Initial 을 보지 못해 키를 만들 수 없어요 (캡처 시작 전 연결·패킷 누락)."}, _packet_size(pkt, h)
         if odcid is not None and odcid in self.conns and dcid not in self.conns:
             conn = self.conns[odcid]
             plain, pn, size = decrypt_initial(pkt, initial_keys(odcid, v, server=True), v)

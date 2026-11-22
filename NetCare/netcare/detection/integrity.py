@@ -135,6 +135,13 @@ class IntegrityDetector:
                 st["nxt"] = end
 
     def _observe_udp(self, r: dict, b: _Sec):
+        dst = r.get("dst") or ""
+        try:
+            da = ipaddress.ip_address(dst)
+            if da.is_multicast or dst.endswith(".255") or dst == "255.255.255.255":
+                return      # 방송·멀티캐스트 탐색 패킷은 같은 내용을 반복하는 게 정상 (실측: 방송 탐색 패킷을 RTP 로 오인)
+        except ValueError:
+            pass
         flow = (r["src"], r.get("sport"), r.get("dst"), r.get("dport"))
         ident = seq = None
         rtp = r.get("rtp")
