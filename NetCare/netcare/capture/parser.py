@@ -193,6 +193,29 @@ def checksum_status(pkt: Packet) -> dict | None:
         return None
 
 
+HTTP_METHODS = (b"GET ", b"POST ", b"HEAD ", b"PUT ", b"DELETE ", b"OPTIONS ", b"PATCH ", b"CONNECT ", b"TRACE ")
+
+
+def parse_http(payload: bytes) -> dict | None:
+    """평문 HTTP 요청·응답의 첫 줄과 주요 헤더를 읽는다 (HTTPS 는 암호화되어 해당 없음)."""
+    if payload.startswith(HTTP_METHODS):
+        head = payload[:4096].split(b"\r\n\r\n", 1)[0].decode("latin-1", "replace")
+        lines = head.split("\r\n")
+        parts = lines[0].split(" ")
+        if len(parts) < 2:
+            return None
+        h = {}
+        for ln in lines[1:]:
+            k, _, v = ln.partition(":")
+            if k:
+                h[k.strip().lower()] = v.strip()
+        return {"kind": "req", "method": parts[0], "uri": parts[1][:2048], "host": h.get("host", "")[:255],
+                "ua": h.get("user-agent", "")[:512], "referer": h.get("referer", "")[:512]}
+    if payload.startswith(b"HTTP/1.") and len(payload) >= 12 and payload[9:12].isdigit():
+        return {"kind": "resp", "status": int(payload[9:12])}
+    return None
+
+
 def _rtp_info(payload: bytes, sport: int, dport: int) -> dict | None:
     """RTP(음성·영상 통화) 헤더처럼 보이면 SSRC·순서 번호·타임스탬프를 돌려준다."""
     if len(payload) < 12 or sport < 1024 or dport < 1024:
@@ -233,7 +256,7 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
         "dns_qname": None, "dns_qtype": None, "dns_qr": None, "dns_rcode": None, "dns_id": None, "dns_answers": None,
         "tls": None, "service": "", "service_desc": "", "service_port": None,
         "direction": "other",
-        "csum": None, "udp_head": None, "rtp": None,
+        "csum": None, "udp_head": None, "rtp": None, "http": None, "ftp_code": None,
     }
     try:
         if pkt.haslayer(Ether):
@@ -264,6 +287,10 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
                 rec["payload_len"] = len(payload) - (len(t[Padding]) if t.haslayer(Padding) else 0)
             if payload:
                 rec["tls"] = parse_tls(payload)  # TLS 형식이 아니면 None
+                if rec["tls"] is None:
+                    rec["http"] = parse_http(payload)
+                    if rec["sport"] == 21 and len(payload) >= 4 and payload[:3].isdigit() and payload[3:4] in (b" ", b"-"):
+                        rec["ftp_code"] = int(payload[:3])   # FTP 서버 응답 코드 (530 = 로그인 실패)
         elif pkt.haslayer(UDP):
             u = pkt[UDP]
             rec.update(proto="UDP", sport=int(u.sport), dport=int(u.dport), udp_len=int(u.len or 0))

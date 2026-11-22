@@ -23,15 +23,16 @@ Wireshark 수준의 패킷 분석을 누구나 이해할 수 있는 화면으로
 1. [빠른 시작](#1-빠른-시작)
 2. [동작 원리](#2-동작-원리)
 3. [시스템 구성](#3-시스템-구성)
-4. [이상 탐지 규칙 25종](#4-이상-탐지-규칙-25종)
+4. [이상 탐지 규칙 28종](#4-이상-탐지-규칙-28종)
 5. [진단 · 조치 · 상태 점수](#5-진단--조치--상태-점수)
 6. [가상 공격 실험실 (Simulation Lab)](#6-가상-공격-실험실-simulation-lab)
-7. [그 밖의 공격 테스트 방법](#7-그-밖의-공격-테스트-방법)
-8. [화면 구성과 단축키](#8-화면-구성과-단축키)
-9. [안전장치](#9-안전장치)
-10. [테스트](#10-테스트)
-11. [폴더 구조](#11-폴더-구조)
-12. [한계](#12-한계)
+7. [CrowdSec 비교와 공개 데이터셋 벤치마크](#7-crowdsec-비교와-공개-데이터셋-벤치마크)
+8. [그 밖의 공격 테스트 방법](#8-그-밖의-공격-테스트-방법)
+9. [화면 구성과 단축키](#9-화면-구성과-단축키)
+10. [안전장치](#10-안전장치)
+11. [테스트](#11-테스트)
+12. [폴더 구조](#12-폴더-구조)
+13. [한계](#13-한계)
 
 ---
 
@@ -238,7 +239,7 @@ flowchart TB
 
 ---
 
-## 4. 이상 탐지 규칙 25종
+## 4. 이상 탐지 규칙 28종
 
 화면의 **문제 해결 → 📐 탐지 규칙 보기** 에서 각 규칙의 조건(현재 임계값 반영), 근거, 오탐 가능성, 한계를 볼 수 있습니다.
 
@@ -269,6 +270,9 @@ flowchart TB
 | 23 | 체크섬 오류 (비트 변조·손상 패킷) | 패킷 무결성 | 패킷 | 정보~주의 | **의심** |
 | 24 | TCP 주입 (RST·데이터) | 패킷 무결성 | 패킷 | 주의 | **의심** |
 | 25 | UDP 재전송(리플레이)·순서 번호 중복 | 패킷 무결성 | 패킷 | 주의 | **의심** |
+| 26 | 웹 공격 시도 (민감 파일·경로 조작·SQL 인젝션·XSS·백도어·Log4Shell 등) | 공격 | 평문 HTTP | 주의~위험 | 측정 (시도 여부) |
+| 27 | 웹 탐색·크롤링·공격 도구 User-Agent | 공격 | 평문 HTTP | 정보~주의 | 측정 |
+| 28 | 로그인 무차별 대입 (FTP·SSH·웹 로그인) | 공격 | 패킷 | 주의 | 가능성 높음 (SSH는 의심) |
 
 몇 가지 규칙의 판단 방식:
 - **SYN Flood**: 10초 안의 순수 SYN 수가 임계값(기본 60)을 넘고, 그 연결들의 핸드셰이크 완료율이 낮을 때. 완료율 0%에 출발지가 분산돼 있으면 '위험'.
@@ -447,7 +451,43 @@ sequenceDiagram
 
 ---
 
-## 7. 그 밖의 공격 테스트 방법
+## 7. CrowdSec 비교와 공개 데이터셋 벤치마크
+
+[CrowdSec](https://www.crowdsec.net)은 웹 서버·sshd·방화벽 **로그**를 읽어 leaky bucket 시나리오로 공격을 찾는 오픈소스 보안 엔진입니다. NetCare는 로그 대신 **패킷**에서 같은 사건을 만들어, CrowdSec과 **같은 조건**(용량·누수 속도·distinct·패턴 목록)으로 판정합니다 (`netcare/detection/crowdsec_compat.py`).
+
+| NetCare가 패킷에서 만든 사건 | 같은 조건의 CrowdSec 시나리오 |
+|---|---|
+| 평문 HTTP 요청의 경로·인자·User-Agent | `http-sensitive-files`, `http-path-traversal-probing`, `http-sqli-probing`, `http-xss-probing`, `http-backdoors-attempts`, `http-bad-user-agent`, `http-crawl-non_statics`, `apache_log4j2_cve-2021-44228`, `http-cve-2021-41773/42013` |
+| 평문 HTTP 응답 코드 (요청과 짝지음) | `http-probing`, `http-admin-interface-probing` |
+| FTP 응답 530 (로그인 실패) | `vsftpd-bf` |
+| SSH 연결 시도 | `ssh-bf` (암호화로 인증 실패를 볼 수 없어 연결 수로 근사 → '의심') |
+| 열려 있지 않은 포트로 온 SYN | `iptables-scan-multi_ports` |
+
+패턴 목록은 CrowdSec Hub 데이터를 그대로 씁니다(MIT, `netcare/detection/data/crowdsec/NOTICE.md`).
+
+**NetCare 확장 (CrowdSec에 없는 조건, 근거에 `netcare_extension`으로 표시)**
+- URL 디코딩 후 비교: CrowdSec은 로그에 적힌 그대로(인코딩된 상태) 비교해 `%3Cscript%3E` 같은 인코딩된 공격을 놓칩니다.
+- SQL 인젝션 문법 휴리스틱: `' and 1=1`, `order by 3`, `union select`, 따옴표 뒤 주석 등 느린 수동 공격.
+- 웹 로그인 무차별 대입: 실패 응답이 401/403이 아니라 302·200인 앱(DVWA 등)도 같은 로그인 경로 POST 반복으로 잡습니다.
+
+**차이와 한계를 정직하게**
+- CrowdSec은 HTTPS 서버의 로그도 읽지만, NetCare는 HTTPS 내용을 복호화하지 않으므로 HTTPS 웹 공격은 판정하지 못합니다.
+- 반대로 NetCare는 로그가 없는 장비·서비스(스캔, SYN Flood, 스푸핑, 체크섬 변조, TCP 주입 등)도 패킷만으로 봅니다.
+
+### 공개 데이터셋 벤치마크 (CSE-CIC-IDS2018)
+
+직접 만든 공격이 아니라 **공개 라벨 데이터셋**으로 평가합니다. GitHub Actions(`.github/workflows/netcare-bench.yml`)가 다음을 자동으로 수행하고 결과를 [docs/benchmark/cse-cic-ids2018.md](docs/benchmark/cse-cic-ids2018.md)에 기록합니다.
+
+1. CIC·CSE의 [CSE-CIC-IDS2018](https://www.unb.ca/cic/datasets/ids-2018.html) 공개 버킷에서 공격받은 서버의 캡처만 내려받습니다 (FTP·SSH 무차별 대입: 2018-02-14 / 웹 로그인 무차별 대입·XSS·SQL 인젝션: 2018-02-22, 23).
+2. NetCare가 pcap을 분석합니다 (실제 엔진과 같은 `parse_packet → Detector`).
+3. 같은 패킷에서 만든 Apache 접근 로그·vsftpd 로그를 **실제 CrowdSec**(time-machine 모드, 중앙 서버 전송 끔)에 넣습니다.
+4. 데이터셋 라벨(CICFlowMeter CSV)과 비교해 공격별 탐지 여부·소요 시간, 라벨 밖 알림을 표로 만듭니다.
+
+로컬에서는 `python scripts/bench/cse_cic_ids2018.py --case web_thu --out bench-out`으로 한 사례를 돌릴 수 있습니다 (`pip install remotezip` 필요). 6장의 가상 실험실은 탐지 로직 회귀 확인용 보조 지표이고, 성능 근거는 이 공개 데이터셋 결과입니다.
+
+---
+
+## 8. 그 밖의 공격 테스트 방법
 
 | 방법 | 어디서 | 무엇을 확인하나 |
 |---|---|---|
@@ -468,7 +508,7 @@ sequenceDiagram
 
 ---
 
-## 8. 화면 구성과 단축키
+## 9. 화면 구성과 단축키
 
 | 화면 | 내용 |
 |---|---|
@@ -491,7 +531,7 @@ sequenceDiagram
 
 ---
 
-## 9. 안전장치
+## 10. 안전장치
 
 - **자동 차단은 기본으로 꺼져 있습니다.** 켜려면 경고에 동의해야 하고, 켜져 있어도 외부 공인 IP의 '위험' 등급 SYN 급증·포트 스캔·단방향 폭주에만 적용하며 30분 뒤 자동 해제됩니다.
 - 시스템을 바꾸는 조치는 `confirm`과 `acknowledge_risk`가 모두 있어야 실행됩니다.
@@ -505,10 +545,10 @@ sequenceDiagram
 
 ---
 
-## 10. 테스트
+## 11. 테스트
 
 ```bash
-.venv/bin/python -m pytest -q          # 단위·통합 테스트 77개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
+.venv/bin/python -m pytest -q          # 단위·통합 테스트 90개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
 # UI E2E(71개 항목, 크롬 필요)는 기록을 만들므로 별도 데이터 폴더의 서버에서 실행
 NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 8771 &
 .venv/bin/python scripts/ui_e2e.py --base http://127.0.0.1:8771
@@ -518,9 +558,10 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 |---|---|
 | `test_parser.py` | 계층별 필드 해석, 방향 판단 |
 | `test_detection.py` | 기본 규칙과 테스트 시나리오별 기대 탐지, 오탐 완화 |
+| `test_crowdsec_compat.py` | HTTP 파싱, CrowdSec leaky bucket 의미, SQLi·Log4Shell·탐색·FTP·SSH·다중 포트 스캔, 확장(디코딩 XSS·수동 SQLi·웹 로그인), 정상 사용 오탐 방지 |
 | `test_integrity.py` | 체크섬 비트 변조, TCP RST·데이터 주입, RTP·설정 프로토콜 재전송, 정상 종료·송신 패킷 오탐 방지 |
 | `test_tls_ech.py` | TLS SNI·ECH·ESNI 판정, 잘린 ClientHello 처리 |
-| `test_rules_v2.py` | 확장 규칙 3종, 규칙 카탈로그 25종, 엔진 종료 정리, DNS-SD 오탐 회귀 |
+| `test_rules_v2.py` | 확장 규칙 3종, 규칙 카탈로그 28종, 엔진 종료 정리, DNS-SD 오탐 회귀 |
 | `test_api.py` | API, Host·CSRF 보호, pcap 가져오기, 조치 안전 규칙, 설정 검증, 리포트·내보내기 |
 | `test_remediation_health.py` | 조치 승인·롤백, 보호 주소 차단 거부, 상태 점수 |
 | `test_simlab.py` | 시나리오별 기대 탐지, 정상 기준선 오탐 0, 실험실 분리(실제 DB 변화 없음·전송 함수 없음·시스템 명령 없음), 재현성, 평가 지표 손계산 비교, 실제 네트워크 오탐 회귀 |
@@ -529,7 +570,7 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 
 ---
 
-## 11. 폴더 구조
+## 12. 폴더 구조
 
 ```
 NetCare/
@@ -549,7 +590,7 @@ NetCare/
 │   ├── simlab/                가상망 · 시나리오 12종 · 평가 · 실험 관리
 │   ├── api/server.py          FastAPI
 │   └── web/                   index.html · css/ · js/(core·theme·charts·ui·views/*) · ui-kit.html
-├── scripts/                   ui_e2e.py · traffic_lab.py
+├── scripts/                   ui_e2e.py · traffic_lab.py · bench/(공개 데이터셋 벤치마크)
 ├── tests/                     pytest
 └── docs/                      기획서 · 테스트 결과 · 발표 자료 · 실험실 결과 · 스크린샷
 ```
@@ -558,7 +599,7 @@ NetCare/
 
 ---
 
-## 12. 한계
+## 13. 한계
 
 - 탐지는 **내 컴퓨터가 보는 패킷**만 근거로 합니다. 스위치 환경에서는 다른 장치끼리의 통신이 보이지 않습니다.
 - 스푸핑은 패킷만으로 확정할 수 없어 '의심'까지만 판단합니다.

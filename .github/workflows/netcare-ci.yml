@@ -56,6 +56,7 @@ jobs:
         run: >
           pyinstaller run.py --onefile --name NetCare --noconfirm
           --add-data "netcare/web;netcare/web"
+          --add-data "netcare/detection/data;netcare/detection/data"
           --collect-all scapy --collect-data plotly --collect-submodules uvicorn
           --hidden-import netcare.api.server
       - name: Smoke test (start exe, call API, replay test data)

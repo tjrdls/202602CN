@@ -1,0 +1,98 @@
+# 공개 라벨 데이터셋(CSE-CIC-IDS2018)으로 NetCare 와 CrowdSec 을 같은 패킷에서 비교하고 결과를 저장소에 기록
+name: NetCare benchmark (CSE-CIC-IDS2018 vs CrowdSec)
+
+on:
+  push:
+    branches: [main]
+    paths: ["NetCare/scripts/bench/**", ".github/workflows/netcare-bench.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: netcare-bench
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [ftp_ssh, web_thu, web_fri]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: NetCare/requirements.txt
+      - run: pip install -r NetCare/requirements.txt remotezip
+
+      - name: NetCare on the victim server capture (+ generate CrowdSec input logs)
+        run: python NetCare/scripts/bench/cse_cic_ids2018.py --case ${{ matrix.case }} --out out
+
+      - name: Install CrowdSec (central API disabled, nothing is sent to CrowdSec servers)
+        run: |
+          curl -s https://install.crowdsec.net | sudo sh
+          sudo apt-get install -y crowdsec
+          sudo python3 - <<'PY'
+          import yaml
+          p = "/etc/crowdsec/config.yaml"
+          c = yaml.safe_load(open(p))
+          c.get("api", {}).get("server", {}).pop("online_client", None)
+          yaml.safe_dump(c, open(p, "w"))
+          PY
+          sudo cscli collections install crowdsecurity/apache2 crowdsecurity/vsftpd crowdsecurity/base-http-scenarios crowdsecurity/http-cve
+          sudo systemctl restart crowdsec
+          sleep 5
+          sudo cscli version
+          sudo cscli scenarios list -o raw | head -60
+
+      - name: Replay the same traffic through CrowdSec (time-machine mode)
+        run: |
+          D=out/${{ matrix.case }}
+          wc -l $D/apache_access.log $D/vsftpd.log
+          if [ -s $D/apache_access.log ]; then sudo crowdsec -c /etc/crowdsec/config.yaml -dsn "file://$PWD/$D/apache_access.log" -type apache2 -no-api; fi
+          if [ -s $D/vsftpd.log ]; then sudo crowdsec -c /etc/crowdsec/config.yaml -dsn "file://$PWD/$D/vsftpd.log" -type vsftpd -no-api; fi
+          sleep 10
+          sudo cscli alerts list -o json --limit 0 > $D/crowdsec_alerts.json || echo "[]" > $D/crowdsec_alerts.json
+          python3 -c "import json;a=json.load(open('$D/crowdsec_alerts.json')) or [];print(len(a),'alerts');[print(x.get('scenario'),(x.get('source') or {}).get('ip'),x.get('start_at')) for x in a[:50]]"
+          gzip -k $D/apache_access.log $D/vsftpd.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.case }}
+          path: |
+            out/${{ matrix.case }}/netcare_result.json
+            out/${{ matrix.case }}/crowdsec_alerts.json
+            out/${{ matrix.case }}/*.log.gz
+
+  report:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: Build comparison report
+        run: |
+          mkdir -p in
+          for d in art/bench-*; do c=${d#art/bench-}; mkdir -p in/$c; cp $d/*.json in/$c/ 2>/dev/null || true; done
+          python NetCare/scripts/bench/report.py --in in --out NetCare/docs/benchmark
+          cat NetCare/docs/benchmark/cse-cic-ids2018.md >> $GITHUB_STEP_SUMMARY
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add NetCare/docs/benchmark
+          git diff --cached --quiet && exit 0
+          git commit -m "docs(netcare): CSE-CIC-IDS2018 benchmark results (NetCare vs CrowdSec)"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done

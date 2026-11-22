@@ -20,11 +20,11 @@ export const STATUS_KO = { active: "진행 중", ended: "멈춤", resolved: "조
 export const ACT_STATUS = { success: "완료", failed: "실패", simulated: "시뮬레이션", running: "실행 중", cancelled: "취소", rolled_back: "되돌림" };
 export const TYPE_ICON = { ip_packet_flood: "🌊", syn_surge: "🔁", port_concentration: "🎯", traffic_surge: "📈", repeated_connection: "🔂",
   port_scan: "🔍", heavy_peer: "📦", dns_failure: "🧭", gateway_unreachable: "📶", packet_loss: "📉", high_latency: "🐢",
-  arp_spoof: "🪤", ip_spoof_suspect: "🎭", dns_spoof_suspect: "🧪", latency_rise: "🐢", jitter_high: "〰️", tcp_loss: "📉", connection_failure: "🔌", bandwidth_limit_suspect: "🚦", packet_size_anomaly: "📏", proto_ratio_shift: "🧩", dns_nxdomain_surge: "❓", checksum_error: "🧬", tcp_injection: "💉", udp_replay: "🔁" };
+  arp_spoof: "🪤", ip_spoof_suspect: "🎭", dns_spoof_suspect: "🧪", latency_rise: "🐢", jitter_high: "〰️", tcp_loss: "📉", connection_failure: "🔌", bandwidth_limit_suspect: "🚦", packet_size_anomaly: "📏", proto_ratio_shift: "🧩", dns_nxdomain_surge: "❓", checksum_error: "🧬", tcp_injection: "💉", udp_replay: "🔁", web_attack: "🕷️", web_scan: "🕸️", auth_bruteforce: "🔑" };
 export const typeLabel = (t) => ({ ip_packet_flood: "과다 패킷", syn_surge: "SYN 급증", port_concentration: "포트 집중", traffic_surge: "사용량 급증", repeated_connection: "반복 연결",
   port_scan: "포트 스캔", heavy_peer: "과다 통신", dns_failure: "DNS 실패", gateway_unreachable: "공유기 끊김", packet_loss: "데이터 손실", high_latency: "지연",
   arp_spoof: "ARP 스푸핑 의심", ip_spoof_suspect: "IP 스푸핑 의심", dns_spoof_suspect: "DNS 위조 의심",
-  latency_rise: "지연 증가", jitter_high: "지터", tcp_loss: "데이터 손실", connection_failure: "연결 중단", bandwidth_limit_suspect: "대역폭 제한 의심", packet_size_anomaly: "패킷 크기 이상", proto_ratio_shift: "프로토콜 비율 이상", dns_nxdomain_surge: "NXDOMAIN 급증", checksum_error: "체크섬 오류", tcp_injection: "TCP 주입 의심", udp_replay: "UDP 재전송 의심" }[t] || t);
+  latency_rise: "지연 증가", jitter_high: "지터", tcp_loss: "데이터 손실", connection_failure: "연결 중단", bandwidth_limit_suspect: "대역폭 제한 의심", packet_size_anomaly: "패킷 크기 이상", proto_ratio_shift: "프로토콜 비율 이상", dns_nxdomain_surge: "NXDOMAIN 급증", checksum_error: "체크섬 오류", tcp_injection: "TCP 주입 의심", udp_replay: "UDP 재전송 의심", web_attack: "웹 공격 시도", web_scan: "웹 탐색", auth_bruteforce: "무차별 대입" }[t] || t);
 
 export function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

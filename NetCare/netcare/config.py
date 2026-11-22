@@ -73,6 +73,7 @@ class DetectionConfig:
     inject_min_events: int = 2           # TCP 주입: 윈도우 내 징후 최소 개수
     udp_replay_min: int = 5              # UDP 재전송: 같은 흐름의 중복 순서 번호 최소 개수
     udp_seq_ports: list[str] = field(default_factory=list)  # 순서 번호를 검사할 UDP 프로토콜 "포트:오프셋:크기" (예: "9999:0:4")
+    crowdsec_compat: bool = True         # CrowdSec 동등 시나리오(HTTP 공격·탐색, 무차별 대입, 다중 포트 스캔) 사용
     whitelist: list[str] = field(default_factory=list)  # 탐지/차단 제외 IP 또는 CIDR
 
 

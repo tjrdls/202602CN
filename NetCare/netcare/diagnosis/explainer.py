@@ -339,6 +339,9 @@ TYPE_LABELS.update({
     "checksum_error": "체크섬 오류 (손상·변조 패킷 의심)",
     "tcp_injection": "TCP 주입 의심 (RST·데이터)",
     "udp_replay": "UDP 재전송(리플레이) 의심",
+    "web_attack": "웹 공격 시도 (HTTP)",
+    "web_scan": "웹 탐색·크롤링 (HTTP)",
+    "auth_bruteforce": "로그인 무차별 대입",
     "proto_ratio_shift": "프로토콜 비율 이상",
     "dns_nxdomain_surge": "존재하지 않는 도메인 조회 급증",
 })
@@ -581,3 +584,55 @@ def _replay(a, ev, ctx, who_src, who_dst, local):
 
 
 _EXPLAINERS.update({"checksum_error": _csum, "tcp_injection": _inject, "udp_replay": _replay})
+
+
+def _cs_common(a, ev):
+    origin = (f"CrowdSec의 {ev.get('crowdsec')} 시나리오와 같은 조건(leaky bucket)으로 판정했어요. " if ev.get("crowdsec") else
+              "CrowdSec에는 없는 NetCare 확장 조건(URL 디코딩 후 비교·SQL 문법·로그인 반복)으로 판정했어요. ")
+    return (origin
+            + (f"일치한 패턴: {', '.join(ev.get('matches') or [])[:200]}. " if ev.get("matches") else ""))
+
+
+def _web_attack(a, ev, ctx, who_src, who_dst, local):
+    return {
+        "title": f"{who_src}이(가) 웹 서버에 {ev.get('scenario_label')}을(를) 하고 있어요",
+        "summary": f"{who_src}이(가) {who_dst}의 웹 서버(포트 {a.get('port')})로 보낸 평문 HTTP 요청에서 공격 패턴이 보였어요. " + _cs_common(a, ev)
+                   + "공격을 '시도'한 것은 확실하지만 성공했는지는 서버 응답·로그를 확인해야 해요.",
+        "technical": f"{ev.get('crowdsec')} events={ev.get('events')} samples={ev.get('samples')}",
+        "analysis": {"what": ev.get("scenario_label"), "who": _full(who_src, a['src']), "protocol": "HTTP (평문)",
+                     "why": a.get("criterion"), "impact": "취약한 웹 애플리케이션이라면 정보 유출·서버 장악으로 이어질 수 있어요."},
+        "false_positive": "보안 점검 도구를 직접 돌렸거나, 검색 로봇이 우연히 비슷한 경로를 요청한 경우일 수 있어요.",
+        "recommendations": _ip_recs(a.get("src"), ctx),
+    }
+
+
+def _web_scan(a, ev, ctx, who_src, who_dst, local):
+    return {
+        "title": f"{who_src}이(가) 웹 서버를 훑고 있어요 ({ev.get('scenario_label')})",
+        "summary": f"{who_src}이(가) {who_dst}의 웹 서버에 짧은 시간 동안 요청을 많이 보냈어요. " + _cs_common(a, ev)
+                   + "취약점을 찾기 전 단계의 탐색인 경우가 많아요.",
+        "technical": f"{ev.get('crowdsec')} events={ev.get('events')} samples={ev.get('samples')}",
+        "analysis": {"what": ev.get("scenario_label"), "who": _full(who_src, a['src']), "protocol": "HTTP (평문)",
+                     "why": a.get("criterion"), "impact": "직접적인 피해는 없지만 공격 대상 목록에 오를 수 있어요."},
+        "false_positive": "검색 엔진 로봇, 링크 검사기, 내가 쓰는 개발 도구도 비슷한 패턴을 만들어요.",
+        "recommendations": _ip_recs(a.get("src"), ctx),
+    }
+
+
+def _bruteforce(a, ev, ctx, who_src, who_dst, local):
+    ssh = ev.get("scenario") == "ssh_bf"
+    return {
+        "title": f"{who_src}이(가) {'SSH' if ssh else ('웹' if ev.get('scenario') == 'ext_http_login_bf' else 'FTP')} 로그인을 반복해서 시도하고 있어요" + (" (의심)" if ssh else ""),
+        "summary": (f"{who_src}이(가) {who_dst}의 SSH 서버에 짧은 간격으로 연결을 계속 시도했어요. SSH는 암호화되어 로그인 실패 여부를 패킷으로 볼 수 없어, "
+                    "연결 시도 수로 판단했어요. " if ssh else
+                    (f"{who_src}이(가) 같은 로그인 주소로 POST 요청을 짧은 간격으로 계속 보냈어요. " if ev.get("scenario") == "ext_http_login_bf" else
+                     f"{who_src}의 FTP 로그인이 짧은 간격으로 계속 실패했어요(서버 응답 530). ")) + _cs_common(a, ev),
+        "technical": f"{ev.get('crowdsec') or ev.get('scenario')} events={ev.get('events')}",
+        "analysis": {"what": ev.get("scenario_label"), "who": _full(who_src, a['src']), "protocol": "SSH" if ssh else ("HTTP" if ev.get("scenario") == "ext_http_login_bf" else "FTP"),
+                     "why": a.get("criterion"), "impact": "비밀번호가 약하면 계정을 빼앗길 수 있어요."},
+        "false_positive": "자동 배포·백업 스크립트가 짧은 간격으로 접속하는 경우도 있어요." if ssh else "비밀번호를 잊은 사용자가 여러 번 시도한 경우일 수 있어요.",
+        "recommendations": _ip_recs(a.get("src"), ctx),
+    }
+
+
+_EXPLAINERS.update({"web_attack": _web_attack, "web_scan": _web_scan, "auth_bruteforce": _bruteforce})

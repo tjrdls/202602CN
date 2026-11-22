@@ -12,6 +12,15 @@ docker run -d --name netcare -p 127.0.0.1:8765:8765 -v netcare-data:/data ghcr.i
 # then open http://127.0.0.1:8765
 ```
 
+How the team plan maps to NetCare (observer-side detection, see `NetCare/netcare/detection/integrity.py`):
+
+| Team plan | NetCare |
+| --- | --- |
+| Spoofing / bit modification / retransmission (Scapy attacks) | IP spoofing rule, `checksum_error` (recomputes IP/TCP/UDP/ICMP checksums of received packets), `udp_replay` |
+| UDP server checksum handling | `checksum_error` sees corrupted datagrams that the OS would silently drop |
+| Sequence-number validation, duplicate blocking | `udp_replay` (RTP auto-detected, or the team protocol via `udp_seq_ports: ["9999:0:4"]`), `tcp_injection` (per-flow TTL/SEQ checks) |
+| Wireshark verification | Packet detail tree + hex dump in NetCare, public dataset benchmark vs CrowdSec (`NetCare/docs/benchmark/`) |
+
 The image is built and published automatically by GitHub Actions (`.github/workflows/netcare-docker.yml`) after the tests pass. To run from source instead: `cd NetCare && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/python run.py`.
 
 ## Presentation

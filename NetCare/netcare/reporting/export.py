@@ -69,7 +69,10 @@ def _font() -> str:
                 return "NetCareKR"
             except Exception:
                 continue
-    raise RuntimeError("PDF에 쓸 한글 폰트를 찾지 못했어요. (macOS: AppleGothic, Windows: 맑은 고딕, Linux: 나눔고딕 설치 필요)")
+    # 시스템 한글 글꼴이 없으면 reportlab 에 들어 있는 한글 CID 글꼴을 쓴다 (글꼴 파일 없이 동작)
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+    return "HYSMyeongJo-Medium"
 
 
 def to_pdf(report: dict, start: float, end: float, include_test: bool) -> bytes:

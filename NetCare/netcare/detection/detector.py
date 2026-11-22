@@ -102,6 +102,8 @@ class Detector:
         self.adv = AdvancedDetector(self)   # 확장 규칙 (스푸핑 의심 · 연결 품질)
         from netcare.detection.integrity import IntegrityDetector
         self.integ = IntegrityDetector(self)  # 패킷 무결성 (체크섬 · TCP 주입 · UDP 재전송)
+        from netcare.detection.crowdsec_compat import CompatDetector
+        self.compat = CompatDetector(self)    # CrowdSec 동등 시나리오
         self._lock = threading.Lock()
         self.buckets: dict[int, Bucket] = {}
         self.pending_dns: dict[tuple, tuple] = {}   # (id, client, server) → (질의 시각, 도메인, 질의 종류)
@@ -204,6 +206,11 @@ class Detector:
             self.integ.observe(r)
         except Exception:
             pass
+        if self.cfg.crowdsec_compat:
+            try:
+                self.compat.observe(r)
+            except Exception:
+                pass
 
     # ──────────────── 평가 ────────────────
     def _window(self, now: float) -> list[Bucket]:
@@ -293,6 +300,19 @@ class Detector:
                 out += self.integ.evaluate(now, W)
             except Exception:
                 pass
+            if self.cfg.crowdsec_compat:
+                try:
+                    comp = self.compat.evaluate(now, W)
+                    # 같은 출발지의 포트 스캔을 기본 규칙도 잡았으면 하나로 합친다 (근거가 더 풍부한 기본 규칙 유지)
+                    scans = {a.get("src"): a for a in out if a["type"] == "port_scan"}
+                    for c in comp:
+                        base = scans.get(c.get("src")) if c["type"] == "port_scan" else None
+                        if base is not None:
+                            base["evidence"]["crowdsec"] = c["evidence"]["crowdsec"]
+                        else:
+                            out.append(c)
+                except Exception:
+                    pass
 
             if self.last_evaluated_sec != int(now) - 1:
                 self.last_evaluated_sec = int(now) - 1
