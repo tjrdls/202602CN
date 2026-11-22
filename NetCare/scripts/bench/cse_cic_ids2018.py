@@ -139,6 +139,7 @@ def run_netcare(pcap: Path, case: dict, out: Path) -> dict:
     alerts = defaultdict(list)              # (type, src, scenario) → [초 ...]
     meta = {}
     syn_min = defaultdict(Counter)           # (dport, 분) → {외부 출발지: 새 연결 수}
+    diag = defaultdict(Counter)              # 진단: FTP·SSH 서버 응답 모양
     n, first, last, sec = 0, None, None, None
     t0 = time.time()
     with PcapReader(str(pcap)) as rd:
@@ -163,6 +164,11 @@ def run_netcare(pcap: Path, case: dict, out: Path) -> dict:
                                         "crowdsec": ev.get("crowdsec"), "certainty": ev.get("certainty")})
             det.observe(r)
             logs.feed(r)
+            if r["proto"] == "TCP" and 21 in (r.get("sport"), r.get("dport")):
+                side = "server" if r.get("sport") == 21 else "client"
+                diag[f"ftp_{side}_flags"][r.get("flags") or ""] += 1
+                if side == "server" and r.get("payload_len"):
+                    diag["ftp_server_codes"][str(r.get("ftp_code"))] += 1
             if r["proto"] == "TCP" and r["dst"] == host and (r.get("flags") or "") in ("S", "SE", "SEC") and not str(r["src"]).startswith(LOCAL_PREFIX):
                 syn_min[(r["dport"], datetime.fromtimestamp(s, timezone.utc).strftime("%Y-%m-%d %H:%M"))][r["src"]] += 1
             if n % 500000 == 0:
@@ -181,6 +187,7 @@ def run_netcare(pcap: Path, case: dict, out: Path) -> dict:
     print(f"[netcare] done: {n} packets, {len(incidents)} incidents, {time.time() - t0:.0f}s", flush=True)
     return {"packets": n, "first_ts": first, "last_ts": last, "elapsed_sec": round(time.time() - t0, 1),
             "incidents": sorted(incidents, key=lambda x: x["start"]), "log_counts": dict(logs.counts),
+            "diag": {k: dict(v.most_common(12)) for k, v in diag.items()},
             "syn_minutes": {f"{p}|{m}": dict(c.most_common(5)) for (p, m), c in syn_min.items()}}
 
 
