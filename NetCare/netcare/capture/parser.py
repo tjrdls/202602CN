@@ -140,6 +140,71 @@ def tls_name_text(t: dict) -> str:
     return s
 
 
+def _ones_sum(data: bytes) -> int:
+    """인터넷 체크섬(RFC 1071)용 16비트 1의 보수 합. 바이트 순서와 무관하게 0xFFFF 이면 정상."""
+    if len(data) % 2:
+        data += b"\x00"
+    s = sum(memoryview(data).cast("H"))
+    while s >> 16:
+        s = (s & 0xFFFF) + (s >> 16)
+    return s
+
+
+def checksum_status(pkt: Packet) -> dict | None:
+    """IP 헤더와 TCP/UDP/ICMP 체크섬이 맞는지 검사한다. 검사할 수 없으면 None.
+
+    송신 패킷은 NIC 가 체크섬을 나중에 채우는 경우(오프로드)가 많아 호출하는 쪽에서 수신 패킷에만 쓴다.
+    잘린 패킷, GRO 로 합쳐진 큰 패킷(1500B 초과)은 검사하지 않는다.
+    """
+    try:
+        if pkt.haslayer(IP):
+            raw = bytes(pkt[IP])
+            ihl = (raw[0] & 0x0F) * 4
+            total = struct.unpack("!H", raw[2:4])[0]
+            if total > 1500 or len(raw) < total or ihl < 20:
+                return None
+            res: dict[str, Any] = {"ip": _ones_sum(raw[:ihl]) == 0xFFFF, "l4": None, "l4_proto": None}
+            if (struct.unpack("!H", raw[6:8])[0] & 0x3FFF) != 0:
+                return res          # 조각난 패킷은 L4 검사 불가
+            proto, l4 = raw[9], raw[ihl:total]
+            pseudo = raw[12:20] + b"\x00" + bytes([proto]) + struct.pack("!H", len(l4))
+        elif pkt.haslayer(IPv6):
+            raw = bytes(pkt[IPv6])
+            plen = struct.unpack("!H", raw[4:6])[0]
+            if plen > 1460 or len(raw) < 40 + plen:
+                return None
+            proto, l4 = raw[6], raw[40:40 + plen]
+            res = {"ip": None, "l4": None, "l4_proto": None}
+            pseudo = raw[8:40] + struct.pack("!I", len(l4)) + b"\x00\x00\x00" + bytes([proto])
+        else:
+            return None
+        if proto == 6 and len(l4) >= 20:
+            res.update(l4=_ones_sum(pseudo + l4) == 0xFFFF, l4_proto="TCP")
+        elif proto == 17 and len(l4) >= 8:
+            if res["ip"] is not None and l4[6:8] == b"\x00\x00":
+                return res          # IPv4 UDP 체크섬 0 = 체크섬을 쓰지 않음
+            res.update(l4=_ones_sum(pseudo + l4) == 0xFFFF, l4_proto="UDP")
+        elif proto == 1 and len(l4) >= 4:
+            res.update(l4=_ones_sum(l4) == 0xFFFF, l4_proto="ICMP")
+        elif proto == 58 and len(l4) >= 4:
+            res.update(l4=_ones_sum(pseudo + l4) == 0xFFFF, l4_proto="ICMPv6")
+        return res
+    except Exception:
+        return None
+
+
+def _rtp_info(payload: bytes, sport: int, dport: int) -> dict | None:
+    """RTP(음성·영상 통화) 헤더처럼 보이면 SSRC·순서 번호·타임스탬프를 돌려준다."""
+    if len(payload) < 12 or sport < 1024 or dport < 1024:
+        return None
+    b0, b1 = payload[0], payload[1]
+    pt = b1 & 0x7F
+    if b0 >> 6 != 2 or not (pt <= 34 or 96 <= pt <= 127):
+        return None
+    seq, ts, ssrc = struct.unpack("!HII", payload[2:12])
+    return {"ssrc": ssrc, "seq": seq, "ts": ts, "pt": pt}
+
+
 def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set[str] | None = None,
                  source: str = "live", snaplen: int = 2048, store_raw: bool = True) -> dict:
     """Scapy 패킷 → 요약 레코드. 어떤 패킷이 와도 예외를 던지지 않도록 방어적으로 작성."""
@@ -168,6 +233,7 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
         "dns_qname": None, "dns_qtype": None, "dns_qr": None, "dns_rcode": None, "dns_id": None, "dns_answers": None,
         "tls": None, "service": "", "service_desc": "", "service_port": None,
         "direction": "other",
+        "csum": None, "udp_head": None, "rtp": None,
     }
     try:
         if pkt.haslayer(Ether):
@@ -201,6 +267,11 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
         elif pkt.haslayer(UDP):
             u = pkt[UDP]
             rec.update(proto="UDP", sport=int(u.sport), dport=int(u.dport), udp_len=int(u.len or 0))
+            up = bytes(u.payload) if u.payload else b""
+            if up:
+                rec["udp_head"] = up[:16].hex()        # 시퀀스 번호 검증용 앞부분 (설정한 포트의 오프셋에서 읽음)
+                if not pkt.haslayer(DNS):
+                    rec["rtp"] = _rtp_info(up, rec["sport"], rec["dport"])
         elif pkt.haslayer(ICMP):
             ic = pkt[ICMP]
             rec.update(proto="ICMP", icmp_type=int(ic.type), icmp_code=int(ic.code))
@@ -251,6 +322,8 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
             rec["direction"] = "up"
         elif dst_local:
             rec["direction"] = "down"
+        if rec["direction"] in ("down", "other") and rec["ip_version"]:
+            rec["csum"] = checksum_status(pkt)
 
         rec["info"] = technical_info(rec)
         rec["friendly"] = friendly_summary(rec, local_ips)

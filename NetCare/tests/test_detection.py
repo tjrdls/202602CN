@@ -95,9 +95,9 @@ def test_dns_partial_answer_is_not_failure():
     t = T0
     for i in range(10):
         name = f"site{i}.example"
-        qa = Ether() / IP(src="10.0.0.5", dst="10.0.0.1") / UDP(sport=1000 + i, dport=53) / DNS(id=100 + i, qd=DNSQR(qname=name, qtype="A"))
-        q6 = Ether() / IP(src="10.0.0.5", dst="10.0.0.1") / UDP(sport=2000 + i, dport=53) / DNS(id=200 + i, qd=DNSQR(qname=name, qtype="AAAA"))
-        ra = Ether() / IP(src="10.0.0.1", dst="10.0.0.5") / UDP(sport=53, dport=1000 + i) / \
+        qa = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="10.0.0.5", dst="10.0.0.1") / UDP(sport=1000 + i, dport=53) / DNS(id=100 + i, qd=DNSQR(qname=name, qtype="A"))
+        q6 = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="10.0.0.5", dst="10.0.0.1") / UDP(sport=2000 + i, dport=53) / DNS(id=200 + i, qd=DNSQR(qname=name, qtype="AAAA"))
+        ra = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="10.0.0.1", dst="10.0.0.5") / UDP(sport=53, dport=1000 + i) / \
             DNS(id=100 + i, qr=1, qd=DNSQR(qname=name, qtype="A"), an=DNSRR(rrname=name, rdata="192.0.2.1"))
         for p in (qa, q6, ra):
             p.time = t + i * 0.1
@@ -117,7 +117,7 @@ def test_successful_repeated_connections_not_flagged():
         sp = 40000 + i
         for j, (src, dst, s, d, fl) in enumerate([("10.0.0.5", "10.0.0.9", sp, 8080, "S"), ("10.0.0.9", "10.0.0.5", 8080, sp, "SA"),
                                                   ("10.0.0.5", "10.0.0.9", sp, 8080, "A")]):
-            p = Ether() / IP(src=src, dst=dst) / TCP(sport=s, dport=d, flags=fl)
+            p = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src=src, dst=dst) / TCP(sport=s, dport=d, flags=fl)
             p.time = T0 + i * 0.05 + j * 0.001
             det.observe(parse_packet(p, {"10.0.0.5"}, set(), store_raw=False))
     found = det.evaluate(T0 + 3)

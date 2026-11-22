@@ -65,6 +65,14 @@ class DetectionConfig:
     proto_shift_delta: float = 0.5       # 프로토콜 비율 이상: 평소 비율 대비 늘어난 절대 비율(0~1)
     nxdomain_threshold: int = 20         # DNS 응답 이상: 윈도우 내 NXDOMAIN 응답 수
     nxdomain_min_names: int = 10         # DNS 응답 이상: 서로 다른 도메인 수
+    # ── 패킷 무결성 (체크섬 · TCP 주입 · UDP 재전송) ──
+    csum_min_bad: int = 5                # 체크섬 오류: 한 출발지의 틀린 수신 패킷 최소 개수
+    csum_bad_ratio: float = 0.2          # 체크섬 오류: 그 출발지 수신 패킷 중 틀린 비율
+    inject_ttl_delta: int = 5            # TCP 주입: 같은 연결의 평소 TTL 과의 차이(홉 수)
+    inject_seq_window: int = 16_777_216  # TCP 주입: RST 순서 번호가 예상값에서 벗어난 허용 범위(바이트)
+    inject_min_events: int = 2           # TCP 주입: 윈도우 내 징후 최소 개수
+    udp_replay_min: int = 5              # UDP 재전송: 같은 흐름의 중복 순서 번호 최소 개수
+    udp_seq_ports: list[str] = field(default_factory=list)  # 순서 번호를 검사할 UDP 프로토콜 "포트:오프셋:크기" (예: "9999:0:4")
     whitelist: list[str] = field(default_factory=list)  # 탐지/차단 제외 IP 또는 CIDR
 
 
@@ -134,12 +142,19 @@ def validate(cfg: AppConfig) -> None:
     for k, v in positives.items():
         if v <= 0:
             raise ValueError(f"'{k}' 값은 0보다 커야 해요.")
-    for k in ("syn_success_ratio_max", "port_share_threshold", "peer_share_threshold", "dns_failure_ratio", "loss_ratio", "bw_flat_cv", "proto_shift_delta"):
+    for k in ("syn_success_ratio_max", "port_share_threshold", "peer_share_threshold", "dns_failure_ratio", "loss_ratio", "bw_flat_cv", "proto_shift_delta", "csum_bad_ratio"):
         v = getattr(d, k)
         if not 0 < v <= 1:
             raise ValueError(f"'{k}' 값은 0과 1 사이여야 해요.")
     if d.window_sec > 120:
         raise ValueError("윈도우는 120초 이하로 설정해 주세요.")
+    for k in ("csum_min_bad", "inject_ttl_delta", "inject_seq_window", "inject_min_events", "udp_replay_min"):
+        if getattr(d, k) <= 0:
+            raise ValueError(f"'{k}' 값은 0보다 커야 해요.")
+    from netcare.detection.integrity import parse_seq_ports
+    for it in d.udp_seq_ports:
+        if len(parse_seq_ports([it])) != 1:
+            raise ValueError(f"UDP 순서 번호 규칙 '{it}' 은(는) '포트:오프셋:크기' 형식이어야 해요 (크기 1·2·4·8, 오프셋+크기 ≤ 16).")
     import ipaddress
     for w in d.whitelist:
         try:

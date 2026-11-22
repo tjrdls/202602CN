@@ -100,6 +100,8 @@ class Detector:
         self.local_nets: list = []       # ipaddress 네트워크 목록 (ARP·LAN 판단 범위)
         from netcare.detection.advanced import AdvancedDetector
         self.adv = AdvancedDetector(self)   # 확장 규칙 (스푸핑 의심 · 연결 품질)
+        from netcare.detection.integrity import IntegrityDetector
+        self.integ = IntegrityDetector(self)  # 패킷 무결성 (체크섬 · TCP 주입 · UDP 재전송)
         self._lock = threading.Lock()
         self.buckets: dict[int, Bucket] = {}
         self.pending_dns: dict[tuple, tuple] = {}   # (id, client, server) → (질의 시각, 도메인, 질의 종류)
@@ -198,6 +200,10 @@ class Detector:
             self.adv.observe(r)
         except Exception:  # 확장 규칙 오류가 기존 탐지를 막지 않도록
             pass
+        try:
+            self.integ.observe(r)
+        except Exception:
+            pass
 
     # ──────────────── 평가 ────────────────
     def _window(self, now: float) -> list[Bucket]:
@@ -281,6 +287,10 @@ class Detector:
             out += self._rule_dns(dns_q, dns_err, dns_unans, dns_names, dns_servers, W, dns_part, dns_part_names)
             try:
                 out += self.adv.evaluate(now, W)
+            except Exception:
+                pass
+            try:
+                out += self.integ.evaluate(now, W)
             except Exception:
                 pass
 

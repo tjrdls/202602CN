@@ -38,7 +38,7 @@ ECH_BODY = b"\x00" + b"\x00\x01\x00\x01" + b"\x07" + b"\x00\x20" + b"\xaa" * 32 
 
 
 def _pkt(payload: bytes):
-    p = Ether() / IP(src="192.168.0.10", dst="203.0.113.5") / TCP(sport=50000, dport=443, flags="PA") / Raw(payload)
+    p = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="192.168.0.10", dst="203.0.113.5") / TCP(sport=50000, dport=443, flags="PA") / Raw(payload)
     return p.__class__(bytes(p))
 
 

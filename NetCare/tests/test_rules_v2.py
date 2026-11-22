@@ -91,7 +91,7 @@ def test_proto_ratio_shift_silent_on_quiet_network():
 
 def test_new_rules_do_not_fire_on_existing_test_scenarios():
     """기존 테스트 데이터 5종에서 새 규칙 3종이 오탐을 내지 않아야 한다 (반복 방지)."""
-    new = {"packet_size_anomaly", "proto_ratio_shift", "dns_nxdomain_surge"}
+    new = {"packet_size_anomaly", "proto_ratio_shift", "dns_nxdomain_surge", "checksum_error", "tcp_injection", "udp_replay"}
     for name in synthetic.SCENARIOS:
         assert not (types(replay(name)) & new), name
 
@@ -99,7 +99,7 @@ def test_new_rules_do_not_fire_on_existing_test_scenarios():
 def test_rule_catalog_covers_every_type_and_fills_thresholds():
     cfg = DetectionConfig(syn_threshold=77)
     rs = rule_catalog(cfg)
-    assert len(rs) == len(RULES) == 22
+    assert len(rs) == len(RULES) == 25
     assert {r["type"] for r in rs} == set(TYPE_LABELS) == set(_EXPLAINERS)
     syn = next(r for r in rs if r["type"] == "syn_surge")
     assert "77" in syn["condition"] and {"key": "syn_threshold", "value": 77} in syn["thresholds"]

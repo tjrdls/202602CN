@@ -336,6 +336,9 @@ TYPE_LABELS.update({
 
 TYPE_LABELS.update({
     "packet_size_anomaly": "비정상 패킷 크기 의심",
+    "checksum_error": "체크섬 오류 (손상·변조 패킷 의심)",
+    "tcp_injection": "TCP 주입 의심 (RST·데이터)",
+    "udp_replay": "UDP 재전송(리플레이) 의심",
     "proto_ratio_shift": "프로토콜 비율 이상",
     "dns_nxdomain_surge": "존재하지 않는 도메인 조회 급증",
 })
@@ -491,8 +494,7 @@ def _size(a, ev, ctx, who_src, who_dst, local):
         "analysis": {"what": f"{k} 패킷 크기 분포가 평소와 달라요.", "who": "여러 장치(프로토콜 기준 집계)", "protocol": k,
                      "why": f"{ev.get('window_sec')}초 동안 대형 {k} 패킷 {ev.get('count')}개 (기준 {a['threshold']}개)", "impact": "데이터 유출 통로나 회선 낭비일 수 있어요. 대부분은 영향이 없어요."},
         "false_positive": "MTU 측정 도구, DNSSEC 사용, 대형 TXT 레코드 조회는 정상이에요. 반복되지 않으면 무시해도 돼요.",
-        "recommendations": [_rec("traffic_summary", "통신 내역 확인", f"어떤 장치가 큰 {k} 패킷을 주고받는지 확인해요."),
-                            _rec("find_process", "관련 프로그램 찾기", "내 컴퓨터가 보낸 것이라면 어떤 프로그램인지 찾아요.")],
+        "recommendations": [_rec("find_process", "관련 프로그램 찾기", "내 컴퓨터가 보낸 것이라면 어떤 프로그램인지 찾아요.")],
     }
 
 
@@ -506,7 +508,7 @@ def _proto_shift(a, ev, ctx, who_src, who_dst, local):
         "analysis": {"what": "프로토콜 구성이 평소 기준선과 달라졌어요.", "who": "전체 네트워크", "protocol": p,
                      "why": f"비율 {ev.get('share')} (기준 {a['threshold']})", "impact": "그 자체로는 문제가 아니에요. 다른 징후와 함께 보면 원인 파악에 도움이 돼요."},
         "false_positive": "영상통화(UDP), 핑 테스트(ICMP), 새 앱 실행 등 정상적인 사용 변화에서도 나타나요.",
-        "recommendations": [_rec("traffic_summary", "통신 내역 확인", "어떤 서비스·장치가 늘었는지 봐요.")],
+        "recommendations": [_rec("find_process", "관련 프로그램 찾기", "늘어난 통신을 어떤 프로그램이 하는지 찾아요.")],
     }
 
 
@@ -527,3 +529,55 @@ def _nx(a, ev, ctx, who_src, who_dst, local):
 _EXPLAINERS.update({"packet_size_anomaly": _size, "proto_ratio_shift": _proto_shift, "dns_nxdomain_surge": _nx})
 _EXPLAINERS.update({"arp_spoof": _arp, "ip_spoof_suspect": _ip_spoof, "dns_spoof_suspect": _dns_spoof, "latency_rise": _lat,
                     "jitter_high": _jit, "tcp_loss": _loss2, "connection_failure": _connfail, "bandwidth_limit_suspect": _bw})
+
+
+def _csum(a, ev, ctx, who_src, who_dst, local):
+    layers = ", ".join(f"{k} {v}건" for k, v in (ev.get("layers") or {}).items())
+    return {
+        "title": f"{who_src}에서 온 패킷의 체크섬이 맞지 않아요 (손상·변조 의심)",
+        "summary": f"최근 {ev.get('window_sec')}초 동안 {who_src}에서 받은 패킷 {ev.get('checked')}개 중 {ev.get('bad')}개({round((ev.get('ratio') or 0) * 100)}%)의 "
+                   f"체크섬이 내용과 맞지 않았어요. 전송 중 비트가 바뀌었거나(손상), 누군가 내용을 고치고 체크섬을 다시 계산하지 않았다는 뜻이에요. "
+                   "일반 UDP 소켓은 운영체제가 이런 패킷을 조용히 버리므로 프로그램은 알 수 없어요.",
+        "technical": f"bad checksum {ev.get('bad')}/{ev.get('checked')} ({layers}) from {a.get('src')}",
+        "analysis": {"what": "수신 패킷의 IP·TCP·UDP·ICMP 체크섬 불일치", "who": who_src, "protocol": layers or "-",
+                     "why": f"틀린 패킷 {ev.get('bad')}개 (기준 {a['threshold']}개 이상, 비율 {round((ev.get('ratio') or 0) * 100)}%)",
+                     "impact": "운영체제가 버리므로 재전송·속도 저하가 생기고, 의도적인 변조라면 통신 방해 시도일 수 있어요."},
+        "false_positive": "가상 머신·도커 브리지, 일부 USB 랜카드·드라이버는 체크섬을 나중에 계산해 캡처에서 틀려 보일 수 있어요. 손상된 케이블·무선 간섭도 원인이에요.",
+        "recommendations": _ip_recs(a.get("src"), ctx, allow_block=False) + [
+            _rec("connectivity_check", "연결 상태 점검", "손실·지연이 함께 늘었는지 확인해 물리적 손상인지 가려요.")],
+    }
+
+
+def _inject(a, ev, ctx, who_src, who_dst, local):
+    kinds = ev.get("indicators") or {}
+    names = {"rst_ttl": "평소와 다른 TTL의 연결 끊기(RST)", "rst_seq": "순서 번호가 크게 벗어난 RST",
+             "data_ttl": "평소와 다른 TTL의 데이터", "data_after_rst": "RST 뒤에도 이어진 데이터"}
+    txt = ", ".join(f"{names.get(k, k)} {v}건" for k, v in kinds.items())
+    return {
+        "title": "누군가 연결에 가짜 패킷을 끼워 넣고 있을 수 있어요 (TCP 주입 의심)",
+        "summary": f"최근 {ev.get('window_sec')}초 동안 {ev.get('distinct_flows')}개 연결에서 {txt}이(가) 보였어요. "
+                   "같은 서버에서 온 패킷이라면 거쳐 온 거리(TTL)가 거의 같아야 하는데, 다르면 중간 장비가 서버인 척 끼워 넣은 패킷일 수 있어요. "
+                   "연결을 강제로 끊거나(RST 주입) 내용을 바꿔치기하는 공격·검열 장비가 이런 흔적을 남겨요.",
+        "technical": "; ".join(ev.get("examples") or []),
+        "analysis": {"what": "같은 연결 안에서 서로 맞지 않는 TTL·순서 번호", "who": ", ".join(ev.get("flows") or [])[:200] or "-", "protocol": "TCP",
+                     "why": f"주입 징후 {a.get('measured')}건 (기준 {a['threshold']}건)", "impact": "웹·앱 연결이 갑자기 끊기거나, 받은 내용이 위조됐을 수 있어요."},
+        "false_positive": "경로가 바뀌는 순간(로드밸런서·모바일 망 전환)이나 방화벽이 대신 보낸 정상 RST도 TTL이 다를 수 있어요. 반복될 때만 의미가 있어요.",
+        "recommendations": [_rec("connectivity_check", "연결 상태 점검", "끊김이 특정 사이트에만 생기는지 확인해요."),
+                            _rec("dns_test", "DNS 점검", "다른 DNS로도 같은 증상인지 확인해요.")],
+    }
+
+
+def _replay(a, ev, ctx, who_src, who_dst, local):
+    return {
+        "title": f"이미 받은 UDP 패킷이 다시 도착하고 있어요 ({ev.get('protocol')} 재전송 의심)",
+        "summary": f"{ev.get('flow')} 흐름에서 이미 받은 순서 번호가 {ev.get('duplicates')}번 다시 왔어요 (예: {', '.join(str(x) for x in (ev.get('sample_seq') or [])[:5])}). "
+                   "UDP는 중복을 막아 주지 않으므로, 녹음해 둔 패킷을 다시 보내는 재전송(리플레이) 공격이면 받은 프로그램이 같은 명령·음성을 또 처리할 수 있어요.",
+        "technical": f"{ev.get('protocol')} duplicate seq x{ev.get('duplicates')} flow={ev.get('flow')}",
+        "analysis": {"what": "같은 순서 번호의 UDP 패킷 반복", "who": ev.get("flow") or "-", "protocol": ev.get("protocol") or "UDP",
+                     "why": f"중복 {ev.get('duplicates')}건 (기준 {a['threshold']}건)", "impact": "같은 요청이 두 번 처리되거나 통화 품질이 떨어질 수 있어요."},
+        "false_positive": "네트워크 장비의 중복 전송이나 FEC(오류 정정용 중복 전송)를 쓰는 앱도 같은 번호를 다시 보낼 수 있어요.",
+        "recommendations": _ip_recs(a.get("src"), ctx),
+    }
+
+
+_EXPLAINERS.update({"checksum_error": _csum, "tcp_injection": _inject, "udp_replay": _replay})

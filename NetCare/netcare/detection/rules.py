@@ -106,10 +106,28 @@ RULES: list[dict] = [
          condition="{window_sec}초 동안 NXDOMAIN 응답 {nxdomain_threshold}건 이상이고 서로 다른 도메인 {nxdomain_min_names}개 이상",
          thresholds=["nxdomain_threshold", "nxdomain_min_names", "window_sec"], severity="정보 (확정 불가)", certainty="suspected",
          evidence="NXDOMAIN 응답 수, 도메인 수, 예시 도메인", false_positives=["검색 도메인 설정으로 인한 접미사 질의", "광고 차단 DNS(NXDOMAIN으로 차단)"], environments=["평문 DNS 사용 환경"], limits=["DGA(도메인 생성 알고리즘) 여부는 도메인 모양을 봐야 하며 자동 판정하지 않음"]),
+    dict(type="checksum_error", label="체크섬 오류 (손상·변조 패킷 의심)", category="integrity", basis="packet",
+         condition="{window_sec}초 동안 한 출발지에서 체크섬이 틀린 수신 패킷 {csum_min_bad}개 이상이고 그 출발지 패킷의 {csum_bad_ratio:.0%} 이상",
+         thresholds=["csum_min_bad", "csum_bad_ratio", "window_sec"], severity="정보~주의 (비율 50% 이상이면 주의)", certainty="suspected",
+         evidence="수신 패킷의 IP 헤더·TCP·UDP·ICMP 체크섬 재계산 결과 (IPv4 UDP 체크섬 0, 조각, 1500B 초과 패킷은 제외)",
+         false_positives=["가상 머신·도커 브리지의 체크섬 오프로드", "일부 USB 랜카드 드라이버", "손상된 케이블·무선 간섭(공격이 아닌 손상)"],
+         environments=["모든 환경"], limits=["내가 보낸 패킷은 NIC 오프로드 때문에 검사하지 않음", "체크섬까지 다시 계산한 변조는 잡을 수 없음"]),
+    dict(type="tcp_injection", label="TCP 주입 의심 (RST·데이터)", category="integrity", basis="packet",
+         condition="{window_sec}초 동안 같은 연결의 평소 TTL과 {inject_ttl_delta}홉 이상 다른 RST·데이터, 예상 순서 번호에서 {inject_seq_window:,}바이트 넘게 벗어난 RST, RST 뒤 2초 안에 이어진 데이터가 합쳐서 {inject_min_events}건 이상",
+         thresholds=["inject_ttl_delta", "inject_seq_window", "inject_min_events", "window_sec"], severity="주의 (확정 불가)", certainty="suspected",
+         evidence="연결(방향)별 TTL 최빈값과 다음 예상 순서 번호(SEQ) 추적",
+         false_positives=["경로 변경(모바일 망 전환·로드밸런서)", "중간 방화벽이 보내는 정상 RST"],
+         environments=["모든 환경"], limits=["TTL까지 맞춘 경로 위 주입은 순서 번호로만 판단", "암호화된 내용의 바꿔치기 여부는 알 수 없음"]),
+    dict(type="udp_replay", label="UDP 재전송(리플레이) 의심", category="integrity", basis="packet",
+         condition="{window_sec}초 동안 같은 흐름에서 이미 받은 순서 번호가 {udp_replay_min}번 이상 다시 도착 (RTP 자동 인식 + 설정한 UDP 프로토콜)",
+         thresholds=["udp_replay_min", "udp_seq_ports", "window_sec"], severity="주의 (확정 불가)", certainty="suspected",
+         evidence="흐름별 최근 512개 순서 번호(RTP는 SSRC·순서 번호·타임스탬프, 설정 프로토콜은 지정한 오프셋의 값)",
+         false_positives=["네트워크 장비의 중복 전송", "FEC(오류 정정) 중복 전송을 쓰는 앱"],
+         environments=["음성·영상 통화(RTP)", "순서 번호를 넣는 자체 UDP 서비스(설정 필요)"], limits=["순서 번호가 없는 UDP 프로토콜은 판단할 수 없음", "암호화된 SRTP도 헤더 순서 번호는 평문이라 검사 가능"]),
 ]
 
 BASIS_KO = {"packet": "패킷 관측", "statistical": "통계 기준선", "probe": "ping·DNS 실측"}
-CATEGORY_KO = {"attack": "공격 패턴", "usage": "사용량·트래픽", "quality": "품질·장애", "dns": "DNS", "spoof": "위조 의심"}
+CATEGORY_KO = {"attack": "공격 패턴", "usage": "사용량·트래픽", "quality": "품질·장애", "dns": "DNS", "spoof": "위조 의심", "integrity": "패킷 무결성"}
 CERTAINTY_KO = {"suspected": "의심 (확정할 수 없음)", "likely": "가능성 높음", "measured": "측정값 기반"}
 
 

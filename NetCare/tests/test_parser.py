@@ -33,22 +33,22 @@ def test_tcp_fields_and_direction():
 
 
 def test_udp_dns_query_and_response():
-    q = Ether() / IP(src="192.168.0.10", dst="192.168.0.1") / UDP(sport=5555, dport=53) / DNS(id=7, qd=DNSQR(qname="example.com"))
+    q = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="192.168.0.10", dst="192.168.0.1") / UDP(sport=5555, dport=53) / DNS(id=7, qd=DNSQR(qname="example.com"))
     r = parse_packet(q, LOCAL, set())
     assert r["proto"] == "UDP" and r["udp_len"] > 8
     assert r["dns_qname"] == "example.com" and r["dns_qr"] == 0
-    a = Ether() / IP(src="192.168.0.1", dst="192.168.0.10") / UDP(sport=53, dport=5555) / \
+    a = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="192.168.0.1", dst="192.168.0.10") / UDP(sport=53, dport=5555) / \
         DNS(id=7, qr=1, qd=DNSQR(qname="example.com"), an=DNSRR(rrname="example.com", rdata="93.184.216.34"))
     r2 = parse_packet(a, LOCAL, set())
     assert r2["dns_answers"] == ["93.184.216.34"] and r2["direction"] == "down"
-    nx = Ether() / IP(src="192.168.0.1", dst="192.168.0.10") / UDP(sport=53, dport=5555) / DNS(id=8, qr=1, rcode=3, qd=DNSQR(qname="nope.example"))
+    nx = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="192.168.0.1", dst="192.168.0.10") / UDP(sport=53, dport=5555) / DNS(id=8, qr=1, rcode=3, qd=DNSQR(qname="nope.example"))
     assert "실패" in parse_packet(nx, LOCAL, set())["friendly"]
 
 
 def test_icmp_and_ipv6():
-    r = parse_packet(Ether() / IP(src="192.168.0.10", dst="1.1.1.1") / ICMP(type=8), LOCAL, set())
+    r = parse_packet(Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="192.168.0.10", dst="1.1.1.1") / ICMP(type=8), LOCAL, set())
     assert r["proto"] == "ICMP" and r["icmp_type"] == 8
-    r6 = parse_packet(Ether() / IPv6(src="fe80::1", dst="2001:db8::1", hlim=33) / UDP(sport=1, dport=53), set(), set())
+    r6 = parse_packet(Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IPv6(src="fe80::1", dst="2001:db8::1", hlim=33) / UDP(sport=1, dport=53), set(), set())
     assert r6["ip_version"] == 6 and r6["ttl"] == 33
 
 
@@ -56,10 +56,10 @@ def test_tls_sni_is_plaintext_only():
     payload = client_hello(b"www.example.com")
     t = parse_tls(payload)
     assert t["sni"] == "www.example.com" and t["content_type"] == "Handshake"
-    p = Ether() / IP(src="192.168.0.10", dst="1.2.3.4") / TCP(sport=1, dport=443, flags="PA") / Raw(payload)
+    p = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="192.168.0.10", dst="1.2.3.4") / TCP(sport=1, dport=443, flags="PA") / Raw(payload)
     r = parse_packet(p, LOCAL, MAC)
     assert r["tls"]["sni"] == "www.example.com"
-    app = Ether() / IP() / TCP(sport=443, dport=1, flags="PA") / Raw(b"\x17\x03\x03\x00\x10" + bytes(16))
+    app = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP() / TCP(sport=443, dport=1, flags="PA") / Raw(b"\x17\x03\x03\x00\x10" + bytes(16))
     d = dissect(bytes(app), "Ether")
     raw_layer = d["layers"][-1]
     assert "복호화" in raw_layer["note"]  # 암호화 데이터는 내용을 보여주지 않음
@@ -67,7 +67,7 @@ def test_tls_sni_is_plaintext_only():
 
 
 def test_dissect_tree_has_korean_labels():
-    p = Ether() / IP(src="10.0.0.1", dst="10.0.0.2") / TCP(sport=1234, dport=80, flags="SA")
+    p = Ether(src="02:00:00:00:00:aa", dst="02:00:00:00:00:bb") / IP(src="10.0.0.1", dst="10.0.0.2") / TCP(sport=1234, dport=80, flags="SA")
     d = dissect(bytes(p), "Ether")
     names = [l["name"] for l in d["layers"]]
     assert names[:3] == ["Ethernet", "IP", "TCP"]
