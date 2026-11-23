@@ -173,8 +173,9 @@ class Engine:
             def _open(promisc: bool):
                 # 수신 소켓을 직접 열어 Scapy 에 넘긴다(sniff 가 내부에서 여는 것과 같은 소켓). 그래야 커널 캡처 통계를 읽을 수 있다.
                 # store=False: 받은 패킷을 sniffer 가 따로 쌓아 두지 않는다(장시간 실행 메모리).
-                sock = capstats.open_listen_socket(cap_iface, bpf, promisc)
-                if os.environ.get("NETCARE_RAW_FRAMES", "1") != "0":    # 0 = 예전 방식(스니퍼가 해석) — 비교 시험용
+                raw = os.environ.get("NETCARE_RAW_FRAMES", "1") != "0"    # 0 = 예전 방식(스니퍼가 해석) — 비교 시험용
+                sock = capstats.open_listen_socket(cap_iface, bpf, promisc, big_bpf=raw)
+                if raw:
                     capstats.use_raw_frames(sock)
                 smp = capstats.CaptureStatsSampler(capstats.KernelCounter(sock), iface)   # 시작 기준값을 받기 전에 읽음
                 x = AsyncSniffer(opened_socket=sock, prn=self._enqueue_live, store=False)

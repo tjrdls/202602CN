@@ -1,0 +1,381 @@
+{
+ "overlap": {
+  "start": 1795418202.09697,
+  "end": 1795421878.9663281,
+  "hours": 1.02
+ },
+ "before_started": 1795418201.432867,
+ "after_started": 1795418202.09697,
+ "memory_before": [
+  {
+   "hour": 0,
+   "rss_mb": 178.3,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "adv.seqs",
+     38
+    ],
+    [
+     "adv.last_ack",
+     38
+    ],
+    [
+     "enc.reasm.orphans",
+     35
+    ],
+    [
+     "enc.events",
+     26
+    ],
+    [
+     "integ.flows",
+     19
+    ],
+    [
+     "enc.flow_kind",
+     19
+    ],
+    [
+     "stats.buckets",
+     19
+    ],
+    [
+     "det.local_ips",
+     15
+    ]
+   ]
+  },
+  {
+   "hour": 1,
+   "rss_mb": 115.6,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "adv.last_ack",
+     4867
+    ],
+    [
+     "adv.seqs",
+     4851
+    ],
+    [
+     "stats.buckets",
+     3486
+    ],
+    [
+     "integ.flows",
+     2461
+    ],
+    [
+     "adv.syn_count",
+     2430
+    ],
+    [
+     "enc.flow_kind",
+     2369
+    ],
+    [
+     "adv.out_syn",
+     2048
+    ],
+    [
+     "enc.reasm.orphans",
+     2048
+    ]
+   ]
+  }
+ ],
+ "memory_after": [
+  {
+   "hour": 0,
+   "rss_mb": 181.6,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "adv.seqs",
+     38
+    ],
+    [
+     "adv.last_ack",
+     38
+    ],
+    [
+     "adv.flow_last",
+     38
+    ],
+    [
+     "enc.reasm.orphans",
+     35
+    ],
+    [
+     "enc.events",
+     26
+    ],
+    [
+     "adv.conn_ttl",
+     21
+    ],
+    [
+     "integ.flows",
+     19
+    ],
+    [
+     "enc.flow_kind",
+     19
+    ]
+   ]
+  },
+  {
+   "hour": 1,
+   "rss_mb": 104.2,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "stats.buckets",
+     3485
+    ],
+    [
+     "enc.flow_kind",
+     2369
+    ],
+    [
+     "enc.reasm.orphans",
+     2048
+    ],
+    [
+     "stats.src_packets",
+     409
+    ],
+    [
+     "stats.src_bytes",
+     409
+    ],
+    [
+     "engine.names",
+     377
+    ],
+    [
+     "enc.quic.conns",
+     341
+    ],
+    [
+     "enc.quic.by_server_cid",
+     341
+    ]
+   ]
+  }
+ ],
+ "memory_before_summary": {
+  "samples": 366,
+  "traced_first": null,
+  "traced_last": null,
+  "traced_max": null,
+  "rss_first": 178.3,
+  "rss_last": 118.5,
+  "rss_max": 247.1,
+  "duration_h": 1.02
+ },
+ "memory_after_summary": {
+  "samples": 366,
+  "traced_first": null,
+  "traced_last": null,
+  "traced_max": null,
+  "rss_first": 181.6,
+  "rss_last": 106.9,
+  "rss_max": 189.9,
+  "duration_h": 1.02
+ },
+ "alerts_before": {
+  "connection_failure": 3,
+  "tcp_loss": 16,
+  "port_concentration": 6,
+  "proto_ratio_shift": 5,
+  "ip_packet_flood": 9,
+  "tcp_injection": 6,
+  "latency_rise": 2,
+  "repeated_connection": 1,
+  "port_scan": 2,
+  "ip_spoof_suspect": 1
+ },
+ "security_before": [
+  {
+   "type": "tcp_injection",
+   "at": 1795418767.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.21.123.206:61386"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.21.123.206:61386 · TTL 110 (평소 118)",
+     "34.149.66.165:443 → 172.21.123.206:61386 · TTL 110 (평소 118)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795418890.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.21.123.206:61682"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.21.123.206:61682 · TTL 110 (평소 118)",
+     "34.149.66.165:443 → 172.21.123.206:61682 · TTL 110 (평소 118)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795419810.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.21.123.206:63304"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.21.123.206:63304 · TTL 110 (평소 118)",
+     "34.149.66.165:443 → 172.21.123.206:63304 · TTL 110 (평소 118)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795420069.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.21.123.206:64449"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.21.123.206:64449 · TTL 110 (평소 118)",
+     "34.149.66.165:443 → 172.21.123.206:64449 · TTL 110 (평소 118)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795420892.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.21.123.206:65267"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.21.123.206:65267 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.21.123.206:65267 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "ip_spoof_suspect",
+   "at": 1795421810.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "ttl": 10
+    },
+    "sample_sources": [
+     "140.82.114.21"
+    ],
+    "distinct_sources": 1,
+    "frame_macs": [
+     "c0:f8:7f:be:0a:a7"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795421869.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.21.123.206:49960"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.21.123.206:49960 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.21.123.206:49960 · TTL 109 (평소 117)"
+    ]
+   }
+  }
+ ],
+ "probe_alerts_before": {
+  "high_latency": 1
+ },
+ "alerts_after": {
+  "connection_failure": 3,
+  "tcp_loss": 16,
+  "port_concentration": 6,
+  "proto_ratio_shift": 5,
+  "ip_packet_flood": 10,
+  "latency_rise": 2,
+  "repeated_connection": 1,
+  "port_scan": 2
+ },
+ "security_after": [],
+ "probe_alerts_after": {
+  "high_latency": 1
+ },
+ "app_dropped_before": 0,
+ "app_dropped_after": 0,
+ "processed_before": 335770,
+ "processed_after": 359227,
+ "capture_after_last": {
+  "ts": 1795421873.553396,
+  "elapsed": 3671.5,
+  "app_captured": 359170,
+  "app_processed": 359170,
+  "app_dropped": 0,
+  "queue": 0,
+  "kernel_method": "bpf",
+  "kernel_recv": 365989,
+  "kernel_drop": 6819,
+  "kernel_ifdrop": null,
+  "nic_rx_packets": 244618,
+  "nic_rx_dropped": 0,
+  "nic_rx_errors": 0,
+  "nic_rx_missed": null,
+  "d_app_captured": 152,
+  "d_app_dropped": 0,
+  "d_kernel_recv": 152,
+  "d_kernel_drop": 0,
+  "d_nic_rx_dropped": 0,
+  "final": false
+ },
+ "capture_after_drop_intervals": 27,
+ "capture_after_intervals": 366,
+ "capture_rows_in_db": 367
+}

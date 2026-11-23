@@ -1,0 +1,4 @@
+8776 {'elapsed': 452.7, 'app_captured': 105109, 'app_processed': 105109, 'app_dropped': 0, 'kernel_recv': 106396, 'kernel_drop': 1287}
+Counter({'tcp_loss': 3, 'ip_packet_flood': 2, 'port_concentration': 1, 'latency_rise': 1})
+8777 {'elapsed': 453.3, 'app_captured': 106390, 'app_processed': 106390, 'app_dropped': 0, 'kernel_recv': 106390, 'kernel_drop': 0}
+Counter({'tcp_loss': 3, 'ip_packet_flood': 2, 'port_concentration': 1, 'latency_rise': 1})

@@ -169,3 +169,46 @@ def test_enlarge_rcvbuf_only_for_af_packet(monkeypatch):
     assert calls[-1] == (socket.SO_RCVBUF, capstats.RCVBUF_BYTES)        # 권한 없으면 일반 SO_RCVBUF 로
     monkeypatch.setattr(capstats, "socket_kind", lambda s: "bpf")
     assert capstats.enlarge_rcvbuf(S()) is None
+
+
+def test_iterative_bpf_extraction_matches_scapy_original():
+    """BPF 버퍼에서 프레임을 꺼내는 반복문 버전이 Scapy 원본(재귀)과 같은 결과를 내는지 (프레임·타임스탬프·정렬)."""
+    import ctypes
+    import pytest
+    ss = pytest.importorskip("scapy.arch.bpf.supersocket")
+    rng = __import__("random").Random(5)
+
+    def hdr(sec, usec, caplen, datalen):
+        h = ss.bpf_hdr()
+        h.bh_tstamp.tv_sec = sec
+        if hasattr(h.bh_tstamp, "tv_usec"):
+            h.bh_tstamp.tv_usec = usec
+        else:
+            h.bh_tstamp.tv_nsec = usec * 1000
+        h.bh_caplen, h.bh_datalen, h.bh_hdrlen = caplen, datalen, ss._bpf_hdr_len
+        return bytes(h)[:ss._bpf_hdr_len]
+    buf = b""
+    for i in range(700):                          # 원본 재귀 한도 안에서 비교
+        frame = bytes(rng.getrandbits(8) for _ in range(rng.randint(42, 300)))
+        rec = hdr(1_700_000_000 + i, i * 7, len(frame), len(frame)) + frame
+        end = ss.L2bpfListenSocket.bpf_align(ss._bpf_hdr_len, len(frame))
+        buf += rec + b"\x00" * (end - len(rec))
+
+    class Fake:
+        guessed_cls = bytes
+        bpf_align = staticmethod(ss.L2bpfListenSocket.bpf_align)
+        extract_frames = ss.L2bpfListenSocket.extract_frames
+    orig = Fake()
+    orig.received_frames = []
+    orig.extract_frames(buf)
+    mine = Fake()
+    capstats._iterative_bpf_frames(mine)
+    mine.extract_frames(buf)
+    got = [mine.get_frame() for _ in range(mine.buffered_frames())]
+    assert got == orig.received_frames and len(got) == 700
+    assert mine.get_frame() == (None, None, None)
+    big = Fake()                                   # 원본은 재귀 한도를 넘는 크기도 처리
+    capstats._iterative_bpf_frames(big)
+    big.extract_frames(buf * 12)
+    assert big.buffered_frames() == 8400
+    del ctypes

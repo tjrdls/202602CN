@@ -82,7 +82,7 @@ def main():
     for key, rows in (("before", db_), ("after", da_)):
         tr = [r.get("traced_mb") for r in rows if r.get("traced_mb") is not None]
         rss = [r.get("rss_mb") for r in rows if r.get("rss_mb") is not None]
-        res[f"memory_{key}_summary"] = {"samples": len(rows), "traced_first": tr[0], "traced_last": tr[-1], "traced_max": max(tr),
+        res[f"memory_{key}_summary"] = {"samples": len(rows), "traced_first": tr[0] if tr else None, "traced_last": tr[-1] if tr else None, "traced_max": max(tr) if tr else None,
                                         "rss_first": rss[0], "rss_last": rss[-1], "rss_max": max(rss),
                                         "duration_h": round((rows[-1]["ts"] - rows[0]["ts"]) / 3600, 2)}
 

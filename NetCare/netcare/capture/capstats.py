@@ -24,10 +24,37 @@ SOL_PACKET = 263
 PACKET_STATISTICS = 6
 
 
-def open_listen_socket(cap_iface, bpf: str | None, promisc: bool):
-    """Scapy sniff() 가 내부에서 여는 것과 같은 수신 소켓. 직접 열어야 커널 통계를 읽을 수 있다."""
+BPF_BUFFER_BYTES = 512 * 1024
+
+
+def enlarge_bpf_buffer() -> int | None:
+    """macOS/BSD BPF 버퍼를 키운다 (Scapy 기본 64KB = 1500B 패킷 약 43개 → 순간 유입 때 커널 단계 누락).
+
+    실측(2026-11-23, Wi-Fi 1시간): 초당 약 1,200개 순간 유입 27번에서 BPF 누락 6,819개. 커널 허용 최대치
+    (sysctl debug.bpf_maxbufsize, 보통 512KB)까지 올린다. BPF 는 읽기 크기가 버퍼 크기와 같아야 하므로
+    use_raw_frames 의 읽기 크기도 이 값을 쓴다. 같은 프로세스의 다른 Scapy BPF 소켓(NetCare 에는 없음)에도 적용된다."""
+    try:
+        import scapy.arch.bpf.supersocket as ss
+    except Exception:
+        return None
+    size = BPF_BUFFER_BYTES
+    try:
+        import subprocess
+        mx = int(subprocess.run(["sysctl", "-n", "debug.bpf_maxbufsize"], capture_output=True, text=True, timeout=3).stdout.strip())
+        size = min(size, mx)
+    except Exception:
+        pass
+    ss.BPF_BUFFER_LENGTH = max(size, ss.BPF_BUFFER_LENGTH)
+    return ss.BPF_BUFFER_LENGTH
+
+
+def open_listen_socket(cap_iface, bpf: str | None, promisc: bool, big_bpf: bool = False):
+    """Scapy sniff() 가 내부에서 여는 것과 같은 수신 소켓. 직접 열어야 커널 통계를 읽을 수 있다.
+    big_bpf: macOS/BSD 에서 BPF 버퍼를 키움 (use_raw_frames 와 함께 쓸 때만 — 읽기 크기를 맞추기 때문)."""
     from scapy.data import ETH_P_ALL
     from scapy.interfaces import resolve_iface
+    if big_bpf and platform.system() in ("Darwin", "FreeBSD", "OpenBSD", "NetBSD"):
+        enlarge_bpf_buffer()
     sock = resolve_iface(cap_iface).l2listen()(type=ETH_P_ALL, iface=cap_iface, filter=bpf or None, promisc=promisc)
     enlarge_rcvbuf(sock)
     return sock
@@ -84,10 +111,16 @@ class RawFrame:
 def use_raw_frames(sock):
     """소켓의 recv() 를 '해석하지 않고 RawFrame 을 돌려주는' 버전으로 바꾼다 (select·recv_raw 는 그대로)."""
     from scapy.data import MTU
-    raw_recv = sock.recv_raw
     empty = [0]
+    is_bpf = socket_kind(sock) == "bpf"
+    if is_bpf:
+        _iterative_bpf_frames(sock)
+    raw_recv = sock.recv_raw
 
     def recv(x=MTU, **_kw):
+        if is_bpf:                          # BPF 는 버퍼 크기 그대로 읽어야 함 (버퍼 안에 프레임 여러 개)
+            import scapy.arch.bpf.supersocket as ss
+            x = ss.BPF_BUFFER_LENGTH
         cls, val, ts = raw_recv(x)
         if not val or not cls:
             # 인터페이스가 사라지면(USB 랜 분리 등) select 는 계속 '읽을 수 있음'을 돌려주고 read 는 실패해 CPU 100% 로 헛돈다
@@ -100,6 +133,41 @@ def use_raw_frames(sock):
         return RawFrame(cls, val, ts)
     sock.recv = recv
     return sock
+
+
+def _iterative_bpf_frames(sock):
+    """Scapy BPF 소켓의 프레임 꺼내기를 반복문으로 바꾼다 (동작은 같음: 같은 헤더·정렬·종료 조건).
+
+    Scapy 원본 extract_frames 는 프레임마다 재귀하며 남은 버퍼를 복사하고(O(n²)), get_frame 은 list.pop(0) 이다.
+    BPF 버퍼를 512KB 로 키우면 작은 패킷 수천 개가 한 번에 들어와 재귀 한도를 넘었다
+    (루프백 초당 6만 개 시험: 캡처 사실상 중단, RSS 531MB)."""
+    from collections import deque
+
+    import scapy.arch.bpf.supersocket as ss
+    frames: deque = deque()
+    hl = ss._bpf_hdr_len
+    nano = getattr(ss, "_NANOTIME", False)
+
+    def extract_frames(buf):
+        n, off, first = len(buf), 0, True
+        cls = sock.guessed_cls
+        while n - off >= hl and (first or n - off >= 20):
+            first = False
+            h = ss.bpf_hdr.from_buffer_copy(buf, off)
+            if h.bh_datalen == 0:
+                break
+            st = off + h.bh_hdrlen
+            ts = h.bh_tstamp.tv_sec + (1e-9 * h.bh_tstamp.tv_nsec if nano else 1e-6 * h.bh_tstamp.tv_usec)
+            frames.append((cls, buf[st:st + h.bh_caplen], ts))
+            off += ss.L2bpfListenSocket.bpf_align(h.bh_hdrlen, h.bh_caplen)
+
+    def get_frame():
+        return frames.popleft() if frames else (None, None, None)
+
+    sock.received_frames = frames
+    sock.extract_frames = extract_frames
+    sock.get_frame = get_frame
+    sock.buffered_frames = lambda: len(frames)
 
 
 def iface_state(name: str | None) -> bool | None:
