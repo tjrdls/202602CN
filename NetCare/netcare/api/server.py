@@ -49,6 +49,8 @@ def _plotly_js() -> Path | None:
 
 def create_app(data_dir: Path | None = None, start_probe: bool = True) -> FastAPI:
     data_dir = Path(data_dir or DATA_DIR)
+    from netcare import diagnostics
+    diagnostics.start_tracemalloc_from_env()     # NETCARE_TRACEMALLOC=N 일 때만 (메모리 진단용)
     config = ConfigStore(data_dir / "config.json")
     db = Database(data_dir / "netcare.db")
     engine = Engine(config, db, action_manager_factory=lambda eng: ActionManager(db, eng.context, lambda: config.cfg),
@@ -108,6 +110,20 @@ def create_app(data_dir: Path | None = None, start_probe: bool = True) -> FastAP
     @app.get("/api/status")
     def status():
         return full_status()
+
+    @app.get("/api/capture/stats")
+    def capture_stats(session_id: int | None = Query(None, ge=1)):
+        """캡처 단계별(응용·커널·NIC) 패킷 수와 누락. session_id 를 주면 DB 에 저장된 그 세션의 10초 간격 기록."""
+        out = engine.capture_stats()
+        if session_id is not None:
+            out["history"] = db.list_capture_stats(session_id)
+        return out
+
+    @app.get("/api/diag/memory")
+    def diag_memory(top: int = Query(0, ge=0, le=50)):
+        """메모리 진단 (읽기 전용): RSS·tracemalloc·주요 자료구조 원소 수."""
+        from netcare import diagnostics
+        return diagnostics.memory_report(engine, top=top)
 
     @app.get("/api/interfaces")
     def list_ifaces():

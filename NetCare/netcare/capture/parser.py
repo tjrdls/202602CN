@@ -158,7 +158,18 @@ def checksum_status(pkt: Packet) -> dict | None:
     """
     try:
         if pkt.haslayer(IP):
-            raw = bytes(pkt[IP])
+            return checksum_raw(bytes(pkt[IP]), 4)
+        if pkt.haslayer(IPv6):
+            return checksum_raw(bytes(pkt[IPv6]), 6)
+        return None
+    except Exception:
+        return None
+
+
+def checksum_raw(raw: bytes, version: int) -> dict | None:
+    """IP 계층부터 시작하는 원본 바이트로 체크섬 검사 (checksum_status 와 빠른 해석 경로가 함께 씀)."""
+    try:
+        if version == 4:
             ihl = (raw[0] & 0x0F) * 4
             total = struct.unpack("!H", raw[2:4])[0]
             if total > 1500 or len(raw) < total or ihl < 20:
@@ -168,8 +179,7 @@ def checksum_status(pkt: Packet) -> dict | None:
                 return res          # 조각난 패킷은 L4 검사 불가
             proto, l4 = raw[9], raw[ihl:total]
             pseudo = raw[12:20] + b"\x00" + bytes([proto]) + struct.pack("!H", len(l4))
-        elif pkt.haslayer(IPv6):
-            raw = bytes(pkt[IPv6])
+        elif version == 6:
             plen = struct.unpack("!H", raw[4:6])[0]
             if plen > 1460 or len(raw) < 40 + plen:
                 return None
@@ -342,27 +352,7 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
                     pass
                 rec["dns_answers"] = answers[:20] or None
 
-        name, desc, sp = terms.service_for(rec["proto"], rec["sport"], rec["dport"])
-        rec.update(service=name, service_desc=desc, service_port=sp)
-        if rec["proto"] == "ICMP":
-            rec.update(service="ICMP", service_desc=terms.PROTOCOLS["ICMP"])
-        elif rec["proto"] in ("ARP", "IGMP", "ICMPv6"):
-            rec.update(service=rec["proto"], service_desc=terms.PROTOCOLS[rec["proto"]])
-
-        # 방향: MAC 이 가장 정확하고, 없으면(루프백 등) IP 로 판정
-        src_local = rec["src_mac"] in local_macs or rec["src"] in local_ips
-        dst_local = rec["dst_mac"] in local_macs or rec["dst"] in local_ips
-        if src_local and dst_local:
-            rec["direction"] = "local"
-        elif src_local:
-            rec["direction"] = "up"
-        elif dst_local:
-            rec["direction"] = "down"
-        if rec["direction"] in ("down", "other") and rec["ip_version"]:
-            rec["csum"] = checksum_status(pkt)
-
-        rec["info"] = technical_info(rec)
-        rec["friendly"] = friendly_summary(rec, local_ips)
+        _finalize(rec, local_ips, local_macs, lambda: checksum_status(pkt))
     except Exception as exc:  # 손상된/특이 패킷도 목록에서 사라지지 않게
         rec["info"] = f"해석 중 오류: {type(exc).__name__}"
         rec["friendly"] = "해석할 수 없는 형식의 데이터예요"
@@ -371,6 +361,214 @@ def parse_packet(pkt: Packet, local_ips: set[str] | None = None, local_macs: set
             rec["raw"] = bytes(pkt)[:snaplen]
         except Exception:
             rec["raw"] = None
+    return rec
+
+
+def _finalize(rec: dict, local_ips: set, local_macs: set, csum) -> None:
+    """서비스 이름·방향·체크섬·설명 (Scapy 해석 경로와 빠른 경로가 함께 씀)."""
+    name, desc, sp = terms.service_for(rec["proto"], rec["sport"], rec["dport"])
+    rec.update(service=name, service_desc=desc, service_port=sp)
+    if rec["proto"] == "ICMP":
+        rec.update(service="ICMP", service_desc=terms.PROTOCOLS["ICMP"])
+    elif rec["proto"] in ("ARP", "IGMP", "ICMPv6"):
+        rec.update(service=rec["proto"], service_desc=terms.PROTOCOLS[rec["proto"]])
+
+    # 방향: MAC 이 가장 정확하고, 없으면(루프백 등) IP 로 판정
+    src_local = rec["src_mac"] in local_macs or rec["src"] in local_ips
+    dst_local = rec["dst_mac"] in local_macs or rec["dst"] in local_ips
+    if src_local and dst_local:
+        rec["direction"] = "local"
+    elif src_local:
+        rec["direction"] = "up"
+    elif dst_local:
+        rec["direction"] = "down"
+    if rec["direction"] in ("down", "other") and rec["ip_version"]:
+        rec["csum"] = csum()
+
+    rec["info"] = technical_info(rec)
+    rec["friendly"] = friendly_summary(rec, local_ips)
+
+
+# ───────────────────────────── 빠른 해석 경로 ─────────────────────────────
+# 실시간 캡처 처리량의 83%가 Scapy 해석(패킷당 약 57µs)과 그 객체에서 값을 다시 꺼내는 비용(약 29µs)이었다
+# (scripts/bench/processing_profile.py, 실측 패킷 6만 개). 흔한 Ethernet+IPv4/IPv6+TCP/UDP 패킷은 고정 위치 헤더를
+# 직접 읽어 parse_packet 과 '같은' 레코드를 만든다. Scapy 해석 결과가 달라질 수 있는 패킷(상위 계층이 붙는 포트,
+# 조각, VLAN, 확장 헤더, ICMP·ARP 등)은 None 을 돌려 기존 Scapy 경로로 보낸다. 같음은 tests/test_fast_parser.py 와
+# 실측 패킷 대조로 확인한다.
+_bind_cache: dict = {}
+
+
+def _bound_ports():
+    """Scapy 가 TCP/UDP 포트에 상위 계층을 묶어 둔 포트 (DNS·터널 등). 계층이 추가로 로드되면 다시 계산."""
+    key = (len(TCP.payload_guess), len(UDP.payload_guess), len(IP.payload_guess), len(IPv6.payload_guess), len(Ether.payload_guess))
+    c = _bind_cache.get("k")
+    if c is not None and c[0] == key:
+        return c[1]
+    res = {}
+    for L in (TCP, UDP):
+        ports = set()
+        generic = False
+        for fields, _cls in L.payload_guess:
+            if set(fields) - {"sport", "dport"}:
+                generic = True            # 포트 이외 조건의 바인딩 → 이 프로토콜은 빠른 경로를 쓰지 않음
+            ports.update(v for k, v in fields.items() if k in ("sport", "dport"))
+        res[L.__name__] = None if generic else frozenset(ports)
+    ok = (any(f == {"type": 0x0800} and c is IP for f, c in Ether.payload_guess)
+          and any(f == {"type": 0x86DD} and c is IPv6 for f, c in Ether.payload_guess)
+          and any(f.get("proto") == 6 and c is TCP for f, c in IP.payload_guess)
+          and any(f.get("proto") == 17 and c is UDP for f, c in IP.payload_guess)
+          and any(f.get("nh") == 6 and c is TCP for f, c in IPv6.payload_guess)
+          and any(f.get("nh") == 17 and c is UDP for f, c in IPv6.payload_guess))
+    res["ok"] = ok
+    # IGMP: 레코드는 IP 프로토콜 번호와 원본 바이트만 쓰므로 IGMP 계열 계층이 붙어도 결과가 같다. 그 밖의 계층이 붙으면 Scapy 경로
+    res["igmp"] = all(c.__name__.startswith("IGMP") for f, c in IP.payload_guess if f.get("proto") == 2)
+    _bind_cache["k"] = (key, res)
+    return res
+
+
+def _mac(b: bytes) -> str:
+    return b.hex(":")
+
+
+def _null_family_class(fam: int):
+    """DLT_NULL(macOS lo0) 4바이트 주소 계열 → Scapy Loopback 바인딩이 고르는 계층 (IP / IPv6 / 없음)."""
+    for f, c in Loopback.payload_guess:
+        if f == {"type": fam} and c in (IP, IPv6):
+            return c
+    return None
+
+
+def fast_record(data: bytes, ts: float, local_ips: set[str] | None = None, local_macs: set[str] | None = None,
+                source: str = "live", snaplen: int = 2048, store_raw: bool = True, link: str = "ether") -> dict | None:
+    """프레임 원본 바이트 → parse_packet 과 같은 레코드. 빠른 경로로 처리할 수 없으면 None.
+
+    link: "ether"(Ethernet) 또는 "null"(BSD/macOS 루프백 DLT_NULL)."""
+    import socket as _s
+    n = len(data)
+    if link == "ether":
+        if n < 34:
+            return None
+        etype = (data[12] << 8) | data[13]
+        o = 14
+        kind = IP if etype == 0x0800 else IPv6 if etype == 0x86DD else None
+    elif link == "null":
+        if n < 24:
+            return None
+        etype = None
+        o = 4
+        kind = _null_family_class(int.from_bytes(data[:4], "little"))
+    else:
+        return None
+    if kind is IP:
+        if n < o + 20 or data[o] >> 4 != 4:
+            return None
+        ihl = (data[o] & 0x0F) * 4
+        if ihl < 20 or n < o + ihl:
+            return None
+        iplen = (data[o + 2] << 8) | data[o + 3]
+        if ((data[o + 6] << 8) | data[o + 7]) & 0x3FFF:
+            return None                         # 조각(MF·오프셋) → Scapy
+        proto = data[o + 9]
+        ip = data[o:]
+        tmp = iplen - ihl
+        if tmp < 0:
+            l4, pad = ip[ihl:], b""
+        else:
+            l4, pad = ip[ihl:ihl + tmp], ip[ihl + tmp:]
+        src, dst = _s.inet_ntoa(data[o + 12:o + 16]), _s.inet_ntoa(data[o + 16:o + 20])
+        ttl, ip_len, ver = data[o + 8], iplen, 4
+    elif kind is IPv6:
+        if n < o + 40 or data[o] >> 4 != 6:
+            return None
+        plen = (data[o + 4] << 8) | data[o + 5]
+        proto = data[o + 6]
+        if plen == 0:
+            return None                         # 점보그램 등 → Scapy
+        ip = data[o:]
+        l4, pad = ip[40:40 + plen], ip[40 + plen:]
+        from scapy.pton_ntop import inet_ntop
+        src, dst = inet_ntop(_s.AF_INET6, data[o + 8:o + 24]), inet_ntop(_s.AF_INET6, data[o + 24:o + 40])
+        ttl, ip_len, ver, ihl = data[o + 7], plen + 40, 6, 40
+    else:
+        return None
+    b = _bound_ports()
+    if not b["ok"]:
+        return None
+    if proto == 6:
+        bound = b["TCP"]
+        if bound is None or len(l4) < 20:
+            return None
+        sport, dport = (l4[0] << 8) | l4[1], (l4[2] << 8) | l4[3]
+        if sport in bound or dport in bound:
+            return None
+        dataofs = l4[12] >> 4
+        if dataofs < 5 or len(l4) < dataofs * 4:
+            return None
+    elif proto == 17:
+        bound = b["UDP"]
+        if bound is None or len(l4) < 8:
+            return None
+        sport, dport = (l4[0] << 8) | l4[1], (l4[2] << 8) | l4[3]
+        if sport in bound or dport in bound:
+            return None
+        ulen = (l4[4] << 8) | l4[5]
+        if ulen < 8:
+            return None
+    elif proto == 2 and ver == 4 and b["igmp"]:
+        pass                                    # IGMP: Scapy 기본 설정에서는 해석하지 않는 계층(Raw) → 헤더 값만 씀
+    else:
+        return None
+    local_ips = local_ips or set()
+    local_macs = local_macs or set()
+    rec: dict[str, Any] = {
+        "ts": float(ts or 0), "length": n, "source": source, "first_layer": "Ether" if etype is not None else "Loopback",
+        "src_mac": _mac(data[6:12]) if etype is not None else None, "dst_mac": _mac(data[0:6]) if etype is not None else None,
+        "ethertype": f"0x{etype:04x} ({ETHERTYPES.get(etype, '기타')})" if etype is not None else None,
+        "ip_version": ver, "src": src, "dst": dst, "ttl": ttl, "ip_len": ip_len,
+        "proto": "OTHER", "sport": None, "dport": None,
+        "flags": None, "seq": None, "ack": None, "window": None, "udp_len": None, "payload_len": 0,
+        "arp_op": None, "arp_hwsrc": None, "icmp_type": None, "icmp_code": None,
+        "dns_qname": None, "dns_qtype": None, "dns_qr": None, "dns_rcode": None, "dns_id": None, "dns_answers": None,
+        "tls": None, "service": "", "service_desc": "", "service_port": None, "direction": "other",
+        "csum": None, "udp_head": None, "rtp": None, "http": None, "ftp_code": None,
+    }
+    try:
+        if proto == 6:
+            hl = dataofs * 4
+            fl = l4[13]
+            out = ""
+            for bit, ch in ((0x01, "F"), (0x02, "S"), (0x04, "R"), (0x08, "P"), (0x10, "A"), (0x20, "U"), (0x40, "E"), (0x80, "C")):
+                if fl & bit:
+                    out += ch
+            seq, ack = struct.unpack("!II", l4[4:12])
+            rec.update(proto="TCP", sport=sport, dport=dport, flags=out, seq=seq, ack=ack, window=(l4[14] << 8) | l4[15])
+            payload = l4[hl:] + pad              # Scapy: bytes(t.payload) = 데이터 + 채움(Padding)
+            rec["_payload"] = payload
+            if ip_len and ver == 4:
+                rec["payload_len"] = max(0, ip_len - ihl - hl)
+            else:
+                rec["payload_len"] = len(payload) - len(pad)
+            if payload:
+                rec["tls"] = parse_tls(payload)
+                if rec["tls"] is None:
+                    rec["http"] = parse_http(payload)
+                    if sport == 21 and len(payload) >= 4 and payload[:3].isdigit() and payload[3:4] in (b" ", b"-"):
+                        rec["ftp_code"] = int(payload[:3])
+        elif proto == 2:
+            rec["proto"] = "IGMP"
+        else:
+            rec.update(proto="UDP", sport=sport, dport=dport, udp_len=ulen)
+            up = l4[8:] + pad
+            rec["_payload"] = up
+            if up:
+                rec["udp_head"] = up[:16].hex()
+                rec["rtp"] = _rtp_info(up, sport, dport)
+        _finalize(rec, local_ips, local_macs, lambda: checksum_raw(ip, ver))
+    except Exception as exc:
+        rec["info"] = f"해석 중 오류: {type(exc).__name__}"
+        rec["friendly"] = "해석할 수 없는 형식의 데이터예요"
+    if store_raw:
+        rec["raw"] = data[:snaplen]
     return rec
 
 

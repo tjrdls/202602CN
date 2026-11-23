@@ -12,16 +12,21 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import queue
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 from netcare.analysis import health, probe
 from netcare.analysis.stats import LiveStats
-from netcare.capture import interfaces
-from netcare.capture.parser import parse_packet
+from netcare.capture import capstats, interfaces
+from netcare.capture.parser import fast_record, parse_packet
+from scapy.layers.l2 import Ether, Loopback
+
+FAST_PARSE = os.environ.get("NETCARE_FAST_PARSE", "1") != "0"   # 0 = 모든 패킷을 Scapy 로 해석 (비교 시험용)
 from netcare.config import ConfigStore
 from netcare.detection.detector import SEVERITY_ORDER, Detector, probe_anomalies
 from netcare.diagnosis.explainer import explain
@@ -63,6 +68,11 @@ class Engine:
         self.error: dict | None = None
         self.dropped = 0
         self.processed = 0
+        self.captured = 0                      # 스니퍼 콜백이 받은 패킷 (큐에 넣은 것 + 큐가 가득 차 버린 것)
+        self.capture_sampler = None            # 실시간 캡처 단계별 통계 (capstats)
+        self.capture_history: deque = deque(maxlen=360)   # 최근 1시간 (10초 간격)
+        self._capstats_at = 0.0
+        self._iface_watch, self._iface_bad = None, 0
         self.local_ips, self.local_macs = interfaces.local_addresses()
         self.gateway = interfaces.default_route()[1]
         self.dns_servers = interfaces.dns_servers()
@@ -115,7 +125,9 @@ class Engine:
             from netcare.encrypted.analyzer import EncryptedAnalyzer
             self.enc = EncryptedAnalyzer()
             self.active.clear()
-            self.dropped = self.processed = 0
+            self.dropped = self.processed = self.captured = 0
+            self.capture_sampler = None
+            self.capture_history.clear()
             self.offline_clock = None
             self._eval_sec = None
             self._last_packet_wall = 0.0
@@ -159,13 +171,24 @@ class Engine:
         sess = self._begin("live", iface, bpf, f"{iface} 실시간 캡처")
         try:
             def _open(promisc: bool):
-                x = AsyncSniffer(iface=cap_iface, filter=bpf or None, prn=self._enqueue_live, store=False, promisc=promisc)
+                # 수신 소켓을 직접 열어 Scapy 에 넘긴다(sniff 가 내부에서 여는 것과 같은 소켓). 그래야 커널 캡처 통계를 읽을 수 있다.
+                # store=False: 받은 패킷을 sniffer 가 따로 쌓아 두지 않는다(장시간 실행 메모리).
+                sock = capstats.open_listen_socket(cap_iface, bpf, promisc)
+                if os.environ.get("NETCARE_RAW_FRAMES", "1") != "0":    # 0 = 예전 방식(스니퍼가 해석) — 비교 시험용
+                    capstats.use_raw_frames(sock)
+                smp = capstats.CaptureStatsSampler(capstats.KernelCounter(sock), iface)   # 시작 기준값을 받기 전에 읽음
+                x = AsyncSniffer(opened_socket=sock, prn=self._enqueue_live, store=False)
                 x.start()
                 time.sleep(0.3)
-                if x.exception is not None:
-                    raise x.exception
-                if not x.running:
+                if x.exception is not None or not x.running:
+                    try:
+                        sock.close()
+                    except Exception:
+                        pass
+                    if x.exception is not None:
+                        raise x.exception
                     raise CaptureError("캡처를 시작하지 못했어요.")
+                x._netcare_sock, x._netcare_sampler = sock, smp
                 return x
             try:
                 sn = _open(True)
@@ -187,12 +210,18 @@ class Engine:
             raise CaptureError(self.error["message"])
         with self._lock:
             self.sniffer = sn
+            self.capture_sampler = sn._netcare_sampler
+            # 시작할 때 OS 인터페이스 목록에서 확인된 경우에만 '연결 끊김'을 판단한다 (Windows 등 이름이 다른 경우 오판 방지)
+            self._iface_watch = iface if capstats.iface_state(iface) else None
+            self._iface_bad = 0
+            self._capstats_at = time.time()
             self.state = "capturing"
             self.config.update({"interface": iface, "bpf_filter": bpf})
         log.info("live capture started on %s filter=%r", iface, bpf)
         return sess
 
     def _enqueue_live(self, pkt):
+        self.captured += 1
         try:
             self.queue.put_nowait((pkt, "live"))
         except queue.Full:
@@ -298,6 +327,13 @@ class Engine:
                 sn.stop(join=True)
             except Exception:
                 pass
+            self._sample_capture(final=True)
+            try:
+                sock = getattr(sn, "_netcare_sock", None)
+                if sock is not None:
+                    sock.close()          # opened_socket 은 Scapy 가 닫지 않으므로 직접 닫는다
+            except Exception:
+                pass
         if self.feeder and self.feeder.is_alive():
             self.feeder.join(timeout=3)
         # 남은 큐 처리 대기 (최대 3초)
@@ -345,7 +381,17 @@ class Engine:
     def _handle_packet(self, pkt, source: str) -> dict:
         cfg = self.config.cfg
         lips, lmacs = getattr(self, "_session_local", (self.local_ips, self.local_macs))
-        rec = parse_packet(pkt, lips, lmacs, source=source, snaplen=cfg.raw_snaplen, store_raw=cfg.store_raw)
+        rec = None
+        if isinstance(pkt, capstats.RawFrame):
+            # 실시간 캡처: 흔한 TCP/UDP 프레임은 헤더를 직접 읽고(빠른 경로), 나머지는 여기서 한 번만 Scapy 로 해석
+            link = "ether" if pkt.cls is Ether else "null" if pkt.cls is Loopback else None
+            if link and FAST_PARSE:
+                rec = fast_record(pkt.data, pkt.time, lips, lmacs, source=source, snaplen=cfg.raw_snaplen,
+                                  store_raw=cfg.store_raw, link=link)
+            if rec is None:
+                pkt = pkt.dissect()
+        if rec is None:
+            rec = parse_packet(pkt, lips, lmacs, source=source, snaplen=cfg.raw_snaplen, store_raw=cfg.store_raw)
         if not rec["ts"]:
             rec["ts"] = time.time()
         try:
@@ -471,6 +517,9 @@ class Engine:
                                   "help": "인터페이스 상태를 확인하고 다시 시작해 주세요.", "code": "sniffer_died"}
                     self.sniffer = None
                     self._end_session()
+                if self.state == "capturing" and time.time() - self._capstats_at >= 10:
+                    self._sample_capture()
+                    self._check_iface()
                 if self.state in ("capturing", "testing"):
                     # 패킷이 한동안 없을 때만 실제 시각으로 평가 (창이 비워지며 징후가 자연스럽게 끝나도록)
                     if time.time() - self._last_packet_wall > 2 and self.queue.empty():
@@ -484,6 +533,42 @@ class Engine:
                 self.health = self._compute_health()
             except Exception:
                 log.exception("ticker failed")
+
+    def _sample_capture(self, final: bool = False):
+        """10초마다 응용·커널·NIC 단계 패킷 수와 누락을 기록 (메모리 360개 + DB)."""
+        smp = self.capture_sampler
+        if smp is None:
+            return
+        self._capstats_at = time.time()
+        try:
+            row = smp.sample(self.captured, self.processed, self.dropped, self.queue.qsize())
+            row["final"] = final
+            self.capture_history.append(row)
+            if self.session:
+                self.db.insert_capture_stats(self.session["id"], row)
+        except Exception:
+            log.exception("capture stats sampling failed")
+        if final:
+            self.capture_sampler = None
+
+    def _check_iface(self):
+        """캡처 중인 인터페이스가 사라지거나 꺼진 상태가 20초 이어지면 캡처를 멈추고 알린다."""
+        name = getattr(self, "_iface_watch", None)
+        if not name or self.state != "capturing":
+            return
+        ok = capstats.iface_state(name)
+        self._iface_bad = 0 if ok is not False else self._iface_bad + 1
+        if self._iface_bad >= 2:
+            log.warning("interface %s disappeared or went down; stopping capture", name)
+            self.stop()
+            self.state = "error"
+            self.error = {"message": f"'{name}' 인터페이스 연결이 끊겨 캡처를 멈췄어요 (랜선·USB 어댑터 분리, 네트워크 변경 등).",
+                          "help": "연결을 확인한 뒤 인터페이스를 다시 골라 캡처를 시작해 주세요.", "code": "iface_lost"}
+
+    def capture_stats(self) -> dict:
+        hist = list(self.capture_history)
+        return {"latest": hist[-1] if hist else None, "history": hist, "support": capstats.support_table(),
+                "kernel_error": getattr(getattr(self.capture_sampler, "kernel", None), "error", None)}
 
     def _compute_health(self) -> dict:
         now = self.now()
@@ -534,7 +619,9 @@ class Engine:
         s = self.session
         return {
             "state": self.state, "session": s, "error": self.error,
-            "dropped": self.dropped, "processed": self.processed, "queue": self.queue.qsize(),
+            "dropped": self.dropped, "processed": self.processed, "queue": self.queue.qsize(), "captured": self.captured,
+            "capture": (self.capture_history[-1] if self.capture_history else None),
+            "capture_support": capstats.support_table(),
             "queue_max": self.queue.maxsize,
             "local_ips": sorted(self.local_ips)[:20], "gateway": self.gateway, "dns_servers": self.dns_servers,
             "baseline": self.detector.baseline_info(),

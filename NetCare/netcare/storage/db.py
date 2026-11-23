@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS health_history (
     score INTEGER, status TEXT, components TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_health_ts ON health_history(ts);
+CREATE TABLE IF NOT EXISTS capture_stats (
+    ts REAL NOT NULL, session_id INTEGER, data TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_capstats_session ON capture_stats(session_id, ts);
 CREATE TABLE IF NOT EXISTS ip_names (
     ip TEXT PRIMARY KEY, name TEXT, updated REAL
 );
@@ -360,6 +364,17 @@ class Database:
             self._w.execute("INSERT INTO health_history(ts, session_id, source, score, status, components) VALUES (?,?,?,?,?,?)",
                             (time.time(), session_id, source, score, status, json.dumps(components, ensure_ascii=False)))
             self._w.commit()
+
+    # ── 캡처 단계별 통계 (10초 간격) ──
+    def insert_capture_stats(self, session_id: int | None, row: dict):
+        with self._wlock:
+            self._w.execute("INSERT INTO capture_stats(ts, session_id, data) VALUES (?,?,?)",
+                            (row.get("ts") or time.time(), session_id, json.dumps(row, ensure_ascii=False)))
+            self._w.commit()
+
+    def list_capture_stats(self, session_id: int, limit: int = 4000) -> list[dict]:
+        rows = self.query("SELECT data FROM capture_stats WHERE session_id=? ORDER BY ts DESC LIMIT ?", (session_id, limit))
+        return [json.loads(r["data"]) for r in reversed(rows)]
 
     # ── IP → 도메인 ──
     def upsert_names(self, names: dict[str, str]):

@@ -86,8 +86,9 @@ export async function loadDashboard() {
   $$("#feed [data-anom]").forEach((li) => li.onclick = () => { hooks.go("issues"); selectIssue(+li.dataset.anom); });
 
   const items = [["평균 패킷 크기", `${num(Math.round(st.avg_size))} B`], ["최대 패킷 크기", `${num(st.max_size)} B`], ["세션 평균 PPS", num(Math.round(st.avg_pps_session))],
-    ["보낸 장치 수", num(st.unique_src)], ["받은 장치 수", num(st.unique_dst)], ["IPv4 / IPv6", `${num(st.ip_versions.IPv4 || 0)} / ${num(st.ip_versions.IPv6 || 0)}`]];
+    ["보낸 장치 수", (st.unique_approx ? "약 " : "") + num(st.unique_src)], ["받은 장치 수", (st.unique_approx ? "약 " : "") + num(st.unique_dst)], ["IPv4 / IPv6", `${num(st.ip_versions.IPv4 || 0)} / ${num(st.ip_versions.IPv6 || 0)}`]];
   $("#statList").innerHTML = items.map(([k, v]) => `<div class="stat-item"><div class="k">${esc(k)}</div><div class="v">${hasData ? esc(v) : "-"}</div></div>`).join("");
+  renderCapture(d.status || {});
   const pr = d.probe;
   if (pr) {
     const g = pr.gateway || {}, e = pr.external || {}, n = pr.dns || {};
@@ -96,6 +97,30 @@ export async function loadDashboard() {
       <button class="link-btn" id="probeNow">지금 다시 측정</button>`;
     $("#probeNow").onclick = async () => { try { toastMsg("측정 중이에요…"); await api("/api/probe/run", { method: "POST", body: {} }); loadDashboard(); toastMsg("연결 상태를 다시 측정했어요"); } catch (e) { toastMsg(e.message, true); } };
   } else $("#probeLine").textContent = "🔎 연결 점검(ping·DNS)은 시작 후 몇 초 안에 실행돼요.";
+}
+
+function renderCapture(status) {
+  const c = status.capture, sup = status.capture_support || {};
+  const na = "측정 불가";
+  const v = (x) => (x === null || x === undefined ? na : num(x));
+  const pct = (a, b) => (a === null || a === undefined || !b ? "" : ` (${((a / b) * 100).toFixed(a && a / b < 0.001 ? 3 : 2)}%)`);
+  if (!c) {
+    $("#capList").innerHTML = `<div class="stat-item"><div class="k">상태</div><div class="v">실시간 캡처 중일 때 표시돼요</div></div>`;
+    $("#capNote").textContent = sup.notes || "";
+    return;
+  }
+  const rows = [
+    ["캡처 소켓에서 받은 패킷", num(c.app_captured)],
+    ["응용 단계 누락 (큐 가득 참)", num(c.app_dropped) + pct(c.app_dropped, c.app_captured)],
+    ["처리 대기 큐", num(c.queue)],
+    [`커널 단계 통과 패킷${c.kernel_method ? " · " + c.kernel_method : ""}`, v(c.kernel_recv)],
+    ["커널 단계 누락 (캡처 버퍼 부족)", v(c.kernel_drop) + pct(c.kernel_drop, c.kernel_recv)],
+    ["인터페이스 단계 누락 (NIC)", v(c.nic_rx_dropped) + (c.nic_rx_missed !== null && c.nic_rx_missed !== undefined ? ` · 하드웨어 놓침 ${num(c.nic_rx_missed)}` : "")],
+  ];
+  if (c.kernel_ifdrop !== null && c.kernel_ifdrop !== undefined) rows.push(["드라이버 단계 누락 (ifdrop)", num(c.kernel_ifdrop)]);
+  rows.push(["최근 10초 누락 (응용 / 커널)", `${v(c.d_app_dropped)} / ${v(c.d_kernel_drop)}`]);
+  $("#capList").innerHTML = rows.map(([k, x]) => `<div class="stat-item"><div class="k">${esc(k)}</div><div class="v">${esc(x)}</div></div>`).join("");
+  $("#capNote").textContent = `${Math.round(c.elapsed)}초 동안 측정 · ${sup.notes || ""}`;
 }
 
 export function drawTraffic(st) {

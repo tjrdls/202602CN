@@ -1,0 +1,16 @@
+{
+ "packets": 904522,
+ "fast_path": 868278,
+ "fast_ratio": 0.9599,
+ "identical": 868278,
+ "mismatch": 0,
+ "fallback_by_proto": {
+  "ARP": 20996,
+  "OTHER": 9684,
+  "UDP": 3323,
+  "ICMP": 2174,
+  "ICMPv6": 67
+ },
+ "examples": [],
+ "note": "Scapy 경로 시간에는 Scapy 해석이 빠져 있음(측정 대상 parse_packet 만)."
+}

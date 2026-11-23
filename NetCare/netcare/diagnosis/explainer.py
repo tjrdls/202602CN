@@ -388,7 +388,8 @@ def _arp(a, ev, ctx, who_src, who_dst, local):
 def _ip_spoof(a, ev, ctx, who_src, who_dst, local):
     ind = ev.get("indicators") or {}
     names = {"own_ip": "내 주소를 출발지로 쓴 외부 프레임", "bogon": "사용될 수 없는 예약 주소 출발지", "lan_mac_mismatch": "같은 네트워크 장치 IP인데 MAC이 다름",
-             "ttl": "평소와 크게 다른 TTL(경로 길이)", "backscatter": "요청한 적 없는 연결 수락(SYN-ACK) 응답"}
+             "ttl": "연결 안에서 바뀐 TTL(경로 길이) — 보조 지표", "ttl_seq": "연결 안에서 TTL이 바뀌고 순서 번호·ACK도 연결 상태와 맞지 않음",
+             "backscatter": "요청한 적 없는 연결 수락(SYN-ACK) 응답"}
     lines = ", ".join(f"{names.get(k, k)} {v}건" for k, v in ind.items())
     return {
         "title": "출발지 주소가 위조된 패킷이 의심돼요 (IP 스푸핑 의심)",
@@ -567,7 +568,7 @@ def _inject(a, ev, ctx, who_src, who_dst, local):
     kinds = ev.get("indicators") or {}
     names = {"rst_ttl": "평소와 다른 TTL의 연결 끊기(RST)", "rst_seq": "순서 번호가 크게 벗어난 RST",
              "data_ttl": "평소와 다른 TTL의 데이터", "data_after_rst": "RST 뒤에도 이어진 데이터",
-             "overlap_conflict": "같은 위치에 내용이 다른 데이터(재조립 충돌)"}
+             "overlap_conflict": "같은 위치에 내용이 다른 데이터(재조립 충돌)", "rst_ack": "내가 보낸 적 없는 위치를 확인(ACK)한 RST"}
     txt = ", ".join(f"{names.get(k, k)} {v}건" for k, v in kinds.items())
     return {
         "title": "누군가 연결에 가짜 패킷을 끼워 넣고 있을 수 있어요 (TCP 주입 의심)",

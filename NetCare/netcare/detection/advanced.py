@@ -7,7 +7,7 @@ evidence["certainty"] 에 'suspected'(의심)로 표시하고 제목에도 '의�
 | 유형 | 판단 근거 | 확실성 |
 |---|---|---|
 | arp_spoof | 같은 IP 에 서로 다른 MAC 이 짧은 시간에 나타남(특히 게이트웨이), 요청 없는 ARP 응답 반복 | likely |
-| ip_spoof_suspect | 내 IP 를 출발지로 한 외부 프레임, LAN IP 와 학습된 MAC 불일치, 예약 주소 출발지, TTL 급변, 요청한 적 없는 SYN-ACK(백스캐터) | suspected |
+| ip_spoof_suspect | 내 IP 를 출발지로 한 외부 프레임, LAN IP 와 학습된 MAC 불일치, 예약 주소 출발지, 연결 안 TTL 변화+SEQ·ACK 불일치(TTL 만 다르면 보조 지표), 요청한 적 없는 SYN-ACK(백스캐터) | suspected |
 | dns_spoof_suspect | 같은 질의에 서로 다른 응답 2개(경합 위조), 질의하지 않은 서버의 응답, DNS 서버 MAC 불일치 | suspected |
 | latency_rise | 핸드셰이크·DNS 왕복 시간 중앙값이 기준과 평소의 2배+50ms 이상 | measured |
 | jitter_high | 같은 상대에 대한 연속 RTT 차이 평균 | measured |
@@ -20,9 +20,17 @@ from __future__ import annotations
 import ipaddress
 import statistics
 import time
-from collections import Counter, defaultdict, deque
+from collections import Counter, OrderedDict, defaultdict, deque
 
 from netcare.analysis import terms
+
+SEQ_MOD = 1 << 32
+
+
+def _seq_dist(a: int, b: int) -> int:
+    """32비트 순서 번호 a - b 를 부호 있는 거리로."""
+    d = (a - b) % SEQ_MOD
+    return d - SEQ_MOD if d >= SEQ_MOD // 2 else d
 
 
 def _is_bogon(ip: str) -> bool:
@@ -66,7 +74,8 @@ class AdvancedDetector:
         self.secs: dict[int, _Sec] = {}
         self.arp_seen: dict[str, dict[str, float]] = defaultdict(dict)   # ip → {mac: 마지막 시각}
         self.arp_pending: dict[str, float] = {}                           # 누군가 물어본 IP → 시각
-        self.ttl_hist: dict[tuple, Counter] = {}   # (출발지, 프로토콜) → TTL 분포
+        self.ttl_hist: OrderedDict[tuple, Counter] = OrderedDict()   # (출발지, 프로토콜) → TTL 분포 (오래 안 보인 순)
+        self.conn_ttl: OrderedDict[tuple, list] = OrderedDict()      # 수신 5-튜플 → [기준 TTL, 상대 다음 SEQ, 마지막 관측, 내 다음 SEQ]
         self.out_syn: dict[tuple, float] = {}       # 내가 보낸 SYN 흐름 → 시각
         self.syn_count: Counter = Counter()          # 흐름별 SYN 횟수 (재전송된 SYN 은 RTT 표본 제외: Karn)
         self.in_synack_for_server: dict[tuple, float] = {}  # 내가 서버일 때 SYN-ACK 보낸 시각
@@ -84,6 +93,45 @@ class AdvancedDetector:
         self._proto_last_sec = None
         self.jit_base = None
         self.rtt_learned = 0
+        self.flow_last: dict[tuple, float] = {}      # seqs·last_ack 흐름 → 마지막 관측 시각 (오래된 흐름 정리용)
+        self._housekeep_at = None
+
+    # ───────────────────────── 정리 (장시간 실행 메모리 상한) ─────────────────────────
+    HOUSEKEEP_SEC = 30
+    TTL_HIST_MAX = 20000
+    CONN_TTL_MAX = 20000
+    WEAK_SPOOF = frozenset({"ttl"})   # 단독으로는 알림을 만들지 않는 보조 지표
+    TTL_SEQ_WINDOW = 1 << 20          # 연결 상태와 '맞지 않는' SEQ/ACK 의 기준 (1MB: 수신 창보다 넉넉함)
+
+    def maybe_housekeep(self, now: float):
+        """HOUSEKEEP_SEC 마다 정리. 트래픽이 끊겨 평가 창이 비어도 상위 Detector 가 부른다."""
+        if self._housekeep_at is None or now - self._housekeep_at >= self.HOUSEKEEP_SEC or now < self._housekeep_at:
+            self._housekeep_at = now
+            self.housekeep(now)
+
+    def housekeep(self, now: float):
+        """시간이 지나 판단에 다시 쓰이지 않는 항목을 지운다. 각 기준은 그 값을 읽는 규칙의 시간 창보다 넉넉하게 잡았다.
+
+        실측·가속 시험에서 이 자료구조들이 시간 만료 없이 계속 자랐다(target_ok·syn_count·in_synack_for_server),
+        또는 상한에 닿으면 새 항목을 받지 않아 탐지가 조용히 멈췄다(dns_q·ttl_hist).
+        """
+        self.target_ok = {k: t for k, t in self.target_ok.items() if now - t <= 300}          # 규칙이 300초 이내 성공만 봄
+        self.out_syn = {k: t for k, t in self.out_syn.items() if now - t <= 120}              # SYN 재전송(최대 ~127초)까지 기다림
+        self.syn_count = Counter({k: v for k, v in self.syn_count.items() if k in self.out_syn})
+        self.in_synack_for_server = {k: t for k, t in self.in_synack_for_server.items() if now - t <= 60}
+        self.dns_q = {k: v for k, v in self.dns_q.items() if now - v[2] <= 30}               # 응답은 수 초 안에 옴
+        self.dns_resp = {k: v for k, v in self.dns_resp.items() if now - v[1] <= 10}         # 경합 위조 비교 창 3초
+        self.arp_pending = {k: t for k, t in self.arp_pending.items() if now - t <= 30}
+        cutoff = int(now) - 60
+        for k in [k for k in self.secs if k < cutoff]:
+            del self.secs[k]
+        for k in [k for k, c in self.conn_ttl.items() if now - c[2] > 120]:
+            del self.conn_ttl[k]
+        idle = [k for k, t in self.flow_last.items() if now - t > 120]
+        for k in idle:
+            self.flow_last.pop(k, None)
+            self.seqs.pop(k, None)
+            self.last_ack.pop(k, None)
 
     # ───────────────────────── 관측 ─────────────────────────
     def _sec(self, ts: float) -> _Sec:
@@ -181,6 +229,13 @@ class AdvancedDetector:
             if r["proto"] == "TCP" and "S" in (r.get("flags") or "") and "A" not in (r.get("flags") or ""):
                 if len(self.out_syn) < 50000:
                     self.out_syn[(src, r["sport"], r["dst"], r["dport"])] = ts
+            if r["proto"] == "TCP" and r.get("seq") is not None:
+                c = self.conn_ttl.get((r["dst"], r.get("dport"), src, r.get("sport"), "TCP"))
+                if c is not None:          # 내가 보낸 다음 순서 번호 (상대 ACK 검증용)
+                    fl = r.get("flags") or ""
+                    end = (r["seq"] + (r.get("payload_len") or 0) + ("S" in fl) + ("F" in fl)) % SEQ_MOD
+                    if c[3] is None or _seq_dist(end, c[3]) > 0:
+                        c[3] = end
             return
         # ① 내 주소가 출발지인데 다른 장치의 프레임 (내 MAC 을 알 때만 판단 가능)
         if src in lips and mac_known:
@@ -201,26 +256,80 @@ class AdvancedDetector:
         # ④ 같은 출발지의 평소 TTL 과 크게 다름
         # 프로토콜별로 따로 본다: 같은 서버라도 TCP 와 UDP(QUIC)를 서로 다른 장비·스택이 처리해 TTL 이 다를 수 있다
         # (실측: Google 서버 TCP TTL 116~117, QUIC TTL 53~54 → 합쳐서 보면 '위조 의심' 오탐)
+        # 연결(5-튜플)별로 본다: 같은 출발지라도 연결마다 다른 장비·경로가 처리할 수 있다
+        # (실측: Google Cloud 34.104.35.123 이 연결 A·B·C 는 TTL 117, 연결 D·E 는 TTL 54 — 연결 안에서는 항상 일정)
+        # TTL 은 보조 지표다. 연결 안에서 TTL 이 바뀌고 순서 번호(SEQ)·ACK 도 그 연결 상태와 맞지 않을 때만 강한 징후(ttl_seq),
+        # TTL 만 다르면 약한 징후(ttl)로 기록하고, 약한 징후만으로는 알림을 만들지 않는다(_rule_ip_spoof).
         ttl = r.get("ttl")
         if ttl is not None and terms.ip_scope(src) == "public":
-            hk = (src, r.get("proto"))
-            h = self.ttl_hist.get(hk)
-            if h is None:
-                if len(self.ttl_hist) < 20000:
-                    self.ttl_hist[hk] = Counter({ttl: 1})
-            else:
-                total = sum(h.values())
-                common, cnt = h.most_common(1)[0]
-                if total >= 5 and cnt / total >= 0.8 and abs(ttl - common) > self.det.cfg.ttl_deviation:
-                    b.spoof.append(("ttl", src, smac))
-                else:
-                    h[ttl] += 1
+            kind = self._ttl_check(r, ts, ttl)
+            if kind:
+                b.spoof.append((kind, src, smac))
         # ⑤ 요청한 적 없는 SYN-ACK (누군가 내 주소를 위조해 공격하면 그 응답이 나에게 온다)
         fl = r.get("flags") or ""
         if r["proto"] == "TCP" and "S" in fl and "A" in fl and r["dst"] in lips:
             key = (r["dst"], r["dport"], src, r["sport"])
             if key not in self.out_syn:
                 b.spoof.append(("backscatter", src, smac))
+
+    def _ttl_check(self, r, ts, ttl) -> str | None:
+        """TTL 징후 판정. 반환: 'ttl_seq'(강함) | 'ttl'(약함, 보조) | None."""
+        dev = self.det.cfg.ttl_deviation
+        proto, src = r.get("proto"), r["src"]
+        fl = r.get("flags") or ""
+        key = (src, r.get("sport"), r["dst"], r.get("dport"), proto)
+        c = self.conn_ttl.get(key)
+        # 출발지·프로토콜별 TTL 분포 (연결 상태가 없는 패킷을 볼 때만 참고)
+        hk = (src, proto)
+        h = self.ttl_hist.get(hk)
+        if h is None:
+            h = self.ttl_hist[hk] = Counter()
+            if len(self.ttl_hist) > self.TTL_HIST_MAX:       # 상한: 가장 오래 안 보인 출발지부터 버림 (예전: 상한 뒤 새 출발지 학습 중단)
+                self.ttl_hist.pop(next(iter(self.ttl_hist)))
+        else:
+            self.ttl_hist.move_to_end(hk)
+        if c is None:
+            new_conn = proto != "TCP" or "S" in fl           # 핸드셰이크로 시작한 연결은 그 TTL 이 이 연결의 기준
+            verdict = None
+            if not new_conn:
+                # 상태 없이 중간부터 보이는 TCP 패킷(캡처 시작 전 연결·요청 없는 RST 등): 출발지 분포와만 비교 → 약한 징후
+                total = sum(h.values())
+                if total >= 5:
+                    common, cnt = h.most_common(1)[0]
+                    if cnt / total >= 0.8 and abs(ttl - common) > dev:
+                        verdict = "ttl"
+            if len(self.conn_ttl) >= self.CONN_TTL_MAX:
+                self.conn_ttl.pop(next(iter(self.conn_ttl)))
+            # [기준 TTL, 상대가 보낼 다음 SEQ, 마지막 관측, 내가 보낼 다음 SEQ]
+            self.conn_ttl[key] = [ttl, self._next_seq(r, None), ts, None]
+            if verdict is None:
+                h[ttl] += 1
+            return verdict
+        self.conn_ttl.move_to_end(key)
+        c[2] = ts
+        if abs(ttl - c[0]) <= dev:
+            c[1] = self._next_seq(r, c[1])
+            h[ttl] += 1
+            return None
+        if proto != "TCP":
+            return "ttl"                                     # 순서 번호로 검증할 수 없음 → TTL 만으로는 약한 징후
+        seq, ack = r.get("seq"), r.get("ack")
+        win = self.TTL_SEQ_WINDOW
+        seq_bad = c[1] is not None and seq is not None and abs(_seq_dist(seq, c[1])) > win
+        ack_bad = ("A" in fl and c[3] is not None and ack is not None and ack != 0
+                   and (_seq_dist(ack, c[3]) > 1 or _seq_dist(c[3], ack) > win))   # 보내지 않은 데이터를 ACK, 또는 너무 오래된 ACK
+        return "ttl_seq" if (seq_bad or ack_bad) else "ttl"
+
+    @staticmethod
+    def _next_seq(r, cur):
+        seq = r.get("seq")
+        if seq is None:
+            return cur
+        fl = r.get("flags") or ""
+        end = (seq + (r.get("payload_len") or 0) + ("S" in fl) + ("F" in fl)) % SEQ_MOD
+        if cur is None or _seq_dist(end, cur) > 0:
+            return end
+        return cur
 
     def _observe_tcp(self, r, ts, b):
         src, dst, sp, dp = r["src"], r["dst"], r["sport"], r["dport"]
@@ -261,6 +370,7 @@ class AdvancedDetector:
         pl = r.get("payload_len") or 0
         b.flow_bytes[flow] += r["length"]
         if pl > 0 and "S" not in fl:
+            self.flow_last[flow] = ts
             b.data_segs += 1
             dq = self.seqs.get(flow)
             if dq is None:
@@ -272,6 +382,7 @@ class AdvancedDetector:
             else:
                 dq.append(r["seq"])
         elif fl in ("A",) and pl == 0:
+            self.flow_last[flow] = ts
             la = self.last_ack.get(flow)
             if la and la[0] == r["ack"]:
                 la[1] += 1
@@ -327,6 +438,7 @@ class AdvancedDetector:
         if len(self.out_syn) > 20000:
             self.out_syn = {k: v for k, v in self.out_syn.items() if v >= now - 60}
             self.syn_count = Counter({k: v for k, v in self.syn_count.items() if k in self.out_syn})
+        self.maybe_housekeep(now)
         win = [self.secs[s] for s in range(end - W, end) if s in self.secs]
         if not win:
             return []
@@ -443,8 +555,11 @@ class AdvancedDetector:
                                "unsolicited_replies": unsol, "redirected_frames": sum(redirected.values())})]
 
     def _rule_ip_spoof(self, win, W):
-        ev = [e for b in win for e in b.spoof]
+        allev = [e for b in win for e in b.spoof]
         th = self.det.cfg.spoof_min_indicators
+        strong = [e for e in allev if e[0] not in self.WEAK_SPOOF]
+        # TTL 만 다른 약한 징후는 보조 지표: 다른(강한) 징후가 함께 있을 때만 개수에 넣는다
+        ev = allev if strong else []
         if len(ev) < th:
             return []
         kinds = Counter(k for k, _, _ in ev)

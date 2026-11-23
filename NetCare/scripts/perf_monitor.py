@@ -32,6 +32,8 @@ def main():
     ap.add_argument("--interval", type=int, default=10)
     ap.add_argument("--db", default="")
     ap.add_argument("--out", default="perf.csv")
+    ap.add_argument("--diag", default="", help="메모리 진단(/api/diag/memory)을 기록할 JSONL 경로 (서버에 진단 API 가 있을 때)")
+    ap.add_argument("--top-every", type=int, default=6, help="몇 번째 표본마다 tracemalloc 상위 할당 위치를 함께 기록할지")
     a = ap.parse_args()
     proc = psutil.Process(a.pid)
     proc.cpu_percent(None)
@@ -42,6 +44,8 @@ def main():
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         last_proc, last_t = None, None
+        dg = open(a.diag, "a") if a.diag else None
+        n_poll = 0
         while time.time() - t0 < a.duration:
             time.sleep(a.interval)
             now = time.time()
@@ -64,6 +68,20 @@ def main():
                    "db_mb": round(os.path.getsize(a.db) / 1e6, 1) if a.db and Path(a.db).exists() else ""}
             w.writerow(row)
             f.flush()
+            if dg:
+                n_poll += 1
+                try:
+                    top = 20 if a.top_every and n_poll % a.top_every == 0 else 0
+                    rep = get(a.base, f"/api/diag/memory?top={top}")
+                    try:
+                        rep["capture"] = get(a.base, "/api/capture/stats").get("latest")
+                    except Exception:
+                        pass
+                    rep["t"] = row["t"]
+                    dg.write(json.dumps(rep, ensure_ascii=False) + "\n")
+                    dg.flush()
+                except Exception as e:
+                    print("diag error", e, flush=True)
     print("done", a.out)
 
 

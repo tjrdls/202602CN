@@ -1,0 +1,1170 @@
+[
+ {
+  "rate_target": 2000,
+  "seconds": 20.0,
+  "sent": 39999,
+  "captured_app": 39999,
+  "processed": 39999,
+  "app_dropped": 0,
+  "kernel_recv": 40564,
+  "kernel_drop": 0,
+  "kernel_method": "bpf",
+  "peak_queue": 69,
+  "rss_start_mb": 104.4,
+  "rss_peak_mb": 111.5,
+  "drain_sec": 0.0,
+  "series": [
+   {
+    "t": 1.0,
+    "captured": 2000,
+    "processed": 2000,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 108.3,
+    "kernel": {
+     "recv": 2153,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 2.0,
+    "captured": 4011,
+    "processed": 4011,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 109.6,
+    "kernel": {
+     "recv": 4173,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 3.0,
+    "captured": 6022,
+    "processed": 6022,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.0,
+    "kernel": {
+     "recv": 6194,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 4.0,
+    "captured": 8027,
+    "processed": 8027,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.2,
+    "kernel": {
+     "recv": 8209,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 5.0,
+    "captured": 10037,
+    "processed": 10037,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.4,
+    "kernel": {
+     "recv": 10229,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 6.0,
+    "captured": 12043,
+    "processed": 12043,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.5,
+    "kernel": {
+     "recv": 12245,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 7.0,
+    "captured": 14053,
+    "processed": 14053,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.5,
+    "kernel": {
+     "recv": 14266,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 8.0,
+    "captured": 16063,
+    "processed": 16063,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.6,
+    "kernel": {
+     "recv": 16286,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 9.0,
+    "captured": 18073,
+    "processed": 18073,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.6,
+    "kernel": {
+     "recv": 18306,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 10.0,
+    "captured": 20084,
+    "processed": 20082,
+    "app_dropped": 0,
+    "queue": 2,
+    "rss_mb": 110.6,
+    "kernel": {
+     "recv": 20327,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 11.0,
+    "captured": 22093,
+    "processed": 22093,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 110.6,
+    "kernel": {
+     "recv": 22468,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 12.1,
+    "captured": 24115,
+    "processed": 24000,
+    "app_dropped": 0,
+    "queue": 115,
+    "rss_mb": 110.9,
+    "kernel": {
+     "recv": 24501,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 13.1,
+    "captured": 26130,
+    "processed": 26130,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.0,
+    "kernel": {
+     "recv": 26525,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 14.1,
+    "captured": 28141,
+    "processed": 28141,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.1,
+    "kernel": {
+     "recv": 28546,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 15.1,
+    "captured": 30147,
+    "processed": 30147,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.1,
+    "kernel": {
+     "recv": 30583,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 16.1,
+    "captured": 32154,
+    "processed": 32154,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.2,
+    "kernel": {
+     "recv": 32600,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 17.1,
+    "captured": 34155,
+    "processed": 34155,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.4,
+    "kernel": {
+     "recv": 34611,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 18.1,
+    "captured": 36158,
+    "processed": 36157,
+    "app_dropped": 0,
+    "queue": 1,
+    "rss_mb": 111.4,
+    "kernel": {
+     "recv": 36624,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 19.1,
+    "captured": 38163,
+    "processed": 38163,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.4,
+    "kernel": {
+     "recv": 38639,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 20.1,
+    "captured": 39999,
+    "processed": 39999,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.5,
+    "kernel": {
+     "recv": 40484,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 21.1,
+    "captured": 39999,
+    "processed": 39999,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 111.5,
+    "kernel": {
+     "recv": 40564,
+     "drop": 0,
+     "ifdrop": null
+    }
+   }
+  ],
+  "raw_frames": true,
+  "loss_total": 0
+ },
+ {
+  "rate_target": 5000,
+  "seconds": 20.0,
+  "sent": 99998,
+  "captured_app": 99998,
+  "processed": 99998,
+  "app_dropped": 0,
+  "kernel_recv": 100492,
+  "kernel_drop": 0,
+  "kernel_method": "bpf",
+  "peak_queue": 1,
+  "rss_start_mb": 111.4,
+  "rss_peak_mb": 113.9,
+  "drain_sec": 0.0,
+  "series": [
+   {
+    "t": 1.0,
+    "captured": 5036,
+    "processed": 5023,
+    "app_dropped": 0,
+    "queue": 13,
+    "rss_mb": 112.8,
+    "kernel": {
+     "recv": 5047,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 2.0,
+    "captured": 10069,
+    "processed": 10065,
+    "app_dropped": 0,
+    "queue": 4,
+    "rss_mb": 112.9,
+    "kernel": {
+     "recv": 10090,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 3.0,
+    "captured": 15093,
+    "processed": 15093,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.0,
+    "kernel": {
+     "recv": 15191,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 4.0,
+    "captured": 20110,
+    "processed": 20107,
+    "app_dropped": 0,
+    "queue": 3,
+    "rss_mb": 113.0,
+    "kernel": {
+     "recv": 20218,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 5.0,
+    "captured": 25134,
+    "processed": 25134,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.1,
+    "kernel": {
+     "recv": 25252,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 6.0,
+    "captured": 30165,
+    "processed": 30162,
+    "app_dropped": 0,
+    "queue": 3,
+    "rss_mb": 113.2,
+    "kernel": {
+     "recv": 30293,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 7.0,
+    "captured": 35190,
+    "processed": 35190,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.3,
+    "kernel": {
+     "recv": 35328,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 8.0,
+    "captured": 40217,
+    "processed": 40217,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.3,
+    "kernel": {
+     "recv": 40365,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 9.0,
+    "captured": 45244,
+    "processed": 45241,
+    "app_dropped": 0,
+    "queue": 3,
+    "rss_mb": 113.3,
+    "kernel": {
+     "recv": 45454,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 10.1,
+    "captured": 50269,
+    "processed": 50269,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.9,
+    "kernel": {
+     "recv": 50489,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 11.1,
+    "captured": 55296,
+    "processed": 55296,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.9,
+    "kernel": {
+     "recv": 55552,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 12.1,
+    "captured": 60296,
+    "processed": 60296,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.9,
+    "kernel": {
+     "recv": 60562,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 13.1,
+    "captured": 65312,
+    "processed": 65312,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.9,
+    "kernel": {
+     "recv": 65659,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 14.1,
+    "captured": 70318,
+    "processed": 70318,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.7,
+    "kernel": {
+     "recv": 70675,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 15.1,
+    "captured": 75342,
+    "processed": 75342,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 113.8,
+    "kernel": {
+     "recv": 75709,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 16.1,
+    "captured": 80370,
+    "processed": 80370,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 60.3,
+    "kernel": {
+     "recv": 80747,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 17.1,
+    "captured": 85390,
+    "processed": 85390,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 57.0,
+    "kernel": {
+     "recv": 85777,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 18.1,
+    "captured": 90403,
+    "processed": 90403,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 57.0,
+    "kernel": {
+     "recv": 90800,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 19.1,
+    "captured": 95425,
+    "processed": 95425,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 57.0,
+    "kernel": {
+     "recv": 95832,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 20.1,
+    "captured": 99998,
+    "processed": 99998,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 57.0,
+    "kernel": {
+     "recv": 100414,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 21.1,
+    "captured": 99998,
+    "processed": 99998,
+    "app_dropped": 0,
+    "queue": 0,
+    "rss_mb": 57.0,
+    "kernel": {
+     "recv": 100492,
+     "drop": 0,
+     "ifdrop": null
+    }
+   }
+  ],
+  "raw_frames": true,
+  "loss_total": 0
+ },
+ {
+  "rate_target": 10000,
+  "seconds": 20.0,
+  "sent": 199999,
+  "captured_app": 199999,
+  "processed": 199999,
+  "app_dropped": 0,
+  "kernel_recv": 200569,
+  "kernel_drop": 0,
+  "kernel_method": "bpf",
+  "peak_queue": 41214,
+  "rss_start_mb": 57.6,
+  "rss_peak_mb": 141.1,
+  "drain_sec": 3.8,
+  "series": [
+   {
+    "t": 1.0,
+    "captured": 10163,
+    "processed": 8194,
+    "app_dropped": 0,
+    "queue": 1968,
+    "rss_mb": 61.4,
+    "kernel": {
+     "recv": 10185,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 2.0,
+    "captured": 20234,
+    "processed": 15152,
+    "app_dropped": 0,
+    "queue": 5081,
+    "rss_mb": 97.7,
+    "kernel": {
+     "recv": 20327,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 3.1,
+    "captured": 30474,
+    "processed": 22951,
+    "app_dropped": 0,
+    "queue": 7522,
+    "rss_mb": 98.5,
+    "kernel": {
+     "recv": 30571,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 4.1,
+    "captured": 40565,
+    "processed": 31177,
+    "app_dropped": 0,
+    "queue": 9387,
+    "rss_mb": 99.5,
+    "kernel": {
+     "recv": 40678,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 5.1,
+    "captured": 50684,
+    "processed": 39613,
+    "app_dropped": 0,
+    "queue": 11070,
+    "rss_mb": 100.7,
+    "kernel": {
+     "recv": 50807,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 6.1,
+    "captured": 60832,
+    "processed": 47774,
+    "app_dropped": 0,
+    "queue": 13057,
+    "rss_mb": 107.0,
+    "kernel": {
+     "recv": 60958,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 7.1,
+    "captured": 70925,
+    "processed": 55937,
+    "app_dropped": 0,
+    "queue": 14987,
+    "rss_mb": 107.9,
+    "kernel": {
+     "recv": 70999,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 8.1,
+    "captured": 80992,
+    "processed": 63877,
+    "app_dropped": 0,
+    "queue": 17114,
+    "rss_mb": 114.3,
+    "kernel": {
+     "recv": 81207,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 9.1,
+    "captured": 91223,
+    "processed": 71909,
+    "app_dropped": 0,
+    "queue": 19313,
+    "rss_mb": 115.2,
+    "kernel": {
+     "recv": 91463,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 10.1,
+    "captured": 101346,
+    "processed": 79436,
+    "app_dropped": 0,
+    "queue": 21909,
+    "rss_mb": 117.7,
+    "kernel": {
+     "recv": 101589,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 11.1,
+    "captured": 111485,
+    "processed": 87139,
+    "app_dropped": 0,
+    "queue": 24345,
+    "rss_mb": 118.9,
+    "kernel": {
+     "recv": 111819,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 12.2,
+    "captured": 121584,
+    "processed": 95000,
+    "app_dropped": 0,
+    "queue": 26584,
+    "rss_mb": 122.0,
+    "kernel": {
+     "recv": 121921,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 13.2,
+    "captured": 131629,
+    "processed": 102800,
+    "app_dropped": 0,
+    "queue": 28828,
+    "rss_mb": 122.8,
+    "kernel": {
+     "recv": 131983,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 14.2,
+    "captured": 141866,
+    "processed": 109892,
+    "app_dropped": 0,
+    "queue": 31973,
+    "rss_mb": 128.3,
+    "kernel": {
+     "recv": 142230,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 15.2,
+    "captured": 151944,
+    "processed": 118000,
+    "app_dropped": 0,
+    "queue": 33944,
+    "rss_mb": 129.1,
+    "kernel": {
+     "recv": 152318,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 16.2,
+    "captured": 161998,
+    "processed": 126238,
+    "app_dropped": 0,
+    "queue": 35759,
+    "rss_mb": 130.0,
+    "kernel": {
+     "recv": 162375,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 17.2,
+    "captured": 172150,
+    "processed": 134821,
+    "app_dropped": 0,
+    "queue": 37328,
+    "rss_mb": 130.6,
+    "kernel": {
+     "recv": 172545,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 18.2,
+    "captured": 182228,
+    "processed": 143173,
+    "app_dropped": 0,
+    "queue": 39054,
+    "rss_mb": 131.2,
+    "kernel": {
+     "recv": 182633,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 19.2,
+    "captured": 192384,
+    "processed": 151162,
+    "app_dropped": 0,
+    "queue": 41221,
+    "rss_mb": 140.3,
+    "kernel": {
+     "recv": 192875,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 20.3,
+    "captured": 199999,
+    "processed": 159351,
+    "app_dropped": 0,
+    "queue": 40647,
+    "rss_mb": 141.1,
+    "kernel": {
+     "recv": 200497,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 21.3,
+    "captured": 199999,
+    "processed": 168000,
+    "app_dropped": 0,
+    "queue": 31999,
+    "rss_mb": 141.1,
+    "kernel": {
+     "recv": 200569,
+     "drop": 0,
+     "ifdrop": null
+    }
+   }
+  ],
+  "raw_frames": true,
+  "loss_total": 0
+ },
+ {
+  "rate_target": 20000,
+  "seconds": 20.0,
+  "sent": 399992,
+  "captured_app": 399992,
+  "processed": 198862,
+  "app_dropped": 201130,
+  "kernel_recv": 400563,
+  "kernel_drop": 0,
+  "kernel_method": "bpf",
+  "peak_queue": 50000,
+  "rss_start_mb": 141.0,
+  "rss_peak_mb": 167.3,
+  "drain_sec": 4.8,
+  "series": [
+   {
+    "t": 1.0,
+    "captured": 20017,
+    "processed": 8990,
+    "app_dropped": 0,
+    "queue": 11026,
+    "rss_mb": 149.8,
+    "kernel": {
+     "recv": 20028,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 2.0,
+    "captured": 40460,
+    "processed": 16332,
+    "app_dropped": 0,
+    "queue": 24127,
+    "rss_mb": 154.9,
+    "kernel": {
+     "recv": 40469,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 3.0,
+    "captured": 60673,
+    "processed": 23831,
+    "app_dropped": 0,
+    "queue": 36841,
+    "rss_mb": 154.9,
+    "kernel": {
+     "recv": 60765,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 4.1,
+    "captured": 81057,
+    "processed": 31287,
+    "app_dropped": 0,
+    "queue": 49769,
+    "rss_mb": 160.8,
+    "kernel": {
+     "recv": 81029,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 5.1,
+    "captured": 101358,
+    "processed": 38880,
+    "app_dropped": 12477,
+    "queue": 50000,
+    "rss_mb": 161.1,
+    "kernel": {
+     "recv": 101405,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 6.1,
+    "captured": 121593,
+    "processed": 45229,
+    "app_dropped": 26363,
+    "queue": 50000,
+    "rss_mb": 161.2,
+    "kernel": {
+     "recv": 121765,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 7.1,
+    "captured": 141933,
+    "processed": 51181,
+    "app_dropped": 40798,
+    "queue": 49953,
+    "rss_mb": 161.5,
+    "kernel": {
+     "recv": 141998,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 8.1,
+    "captured": 162209,
+    "processed": 57500,
+    "app_dropped": 54709,
+    "queue": 50000,
+    "rss_mb": 161.7,
+    "kernel": {
+     "recv": 162423,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 9.1,
+    "captured": 182318,
+    "processed": 64331,
+    "app_dropped": 68035,
+    "queue": 49951,
+    "rss_mb": 161.8,
+    "kernel": {
+     "recv": 182555,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 10.1,
+    "captured": 202760,
+    "processed": 72263,
+    "app_dropped": 80496,
+    "queue": 50000,
+    "rss_mb": 162.3,
+    "kernel": {
+     "recv": 202887,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 11.2,
+    "captured": 222873,
+    "processed": 80162,
+    "app_dropped": 92761,
+    "queue": 49949,
+    "rss_mb": 163.9,
+    "kernel": {
+     "recv": 223130,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 12.2,
+    "captured": 243129,
+    "processed": 88231,
+    "app_dropped": 104961,
+    "queue": 49936,
+    "rss_mb": 163.9,
+    "kernel": {
+     "recv": 243381,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 13.2,
+    "captured": 263481,
+    "processed": 95835,
+    "app_dropped": 117685,
+    "queue": 49960,
+    "rss_mb": 167.2,
+    "kernel": {
+     "recv": 263831,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 14.2,
+    "captured": 283787,
+    "processed": 103111,
+    "app_dropped": 130675,
+    "queue": 50000,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 284137,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 15.2,
+    "captured": 303971,
+    "processed": 111102,
+    "app_dropped": 142868,
+    "queue": 50000,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 304332,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 16.2,
+    "captured": 324087,
+    "processed": 119101,
+    "app_dropped": 155036,
+    "queue": 49949,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 324459,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 17.2,
+    "captured": 344649,
+    "processed": 127198,
+    "app_dropped": 167450,
+    "queue": 50000,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 345031,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 18.3,
+    "captured": 364844,
+    "processed": 134927,
+    "app_dropped": 179916,
+    "queue": 50000,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 365318,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 19.3,
+    "captured": 385094,
+    "processed": 142998,
+    "app_dropped": 192157,
+    "queue": 49938,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 385568,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 20.3,
+    "captured": 399992,
+    "processed": 151257,
+    "app_dropped": 201130,
+    "queue": 47604,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 400487,
+     "drop": 0,
+     "ifdrop": null
+    }
+   },
+   {
+    "t": 21.3,
+    "captured": 399992,
+    "processed": 160500,
+    "app_dropped": 201130,
+    "queue": 38362,
+    "rss_mb": 167.3,
+    "kernel": {
+     "recv": 400487,
+     "drop": 0,
+     "ifdrop": null
+    }
+   }
+  ],
+  "raw_frames": true,
+  "loss_total": 201130
+ }
+]

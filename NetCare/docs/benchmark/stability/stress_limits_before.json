@@ -1,0 +1,56 @@
+{
+ "reassembly_limit": {
+  "flows_fed": 100000,
+  "streams_after": 4096,
+  "cap": 4096,
+  "evicted": 95904,
+  "orphans_after": 2048,
+  "orphan_cap": 2048,
+  "seconds": 3.28,
+  "peak_mb": 4.0
+ },
+ "quic_limit": {
+  "connections_fed": 12000,
+  "conns_after": 4096,
+  "cap": 4096,
+  "by_flow": 8192,
+  "seconds": 8.79,
+  "peak_mb": 8.1
+ },
+ "analyzer_flows_limit": {
+  "flows_fed": 120000,
+  "flow_kind_after": 50000,
+  "cap": 50000,
+  "reasm_streams": 4096,
+  "dns_flows": 0,
+  "seconds": 7.11,
+  "peak_mb": 20.1
+ },
+ "detector_limits": {
+  "flows_fed": 60000,
+  "integrity_flows": 20000,
+  "integrity_cap": 20000,
+  "compat_buckets": 20000,
+  "compat_cap": 20000,
+  "compat_pending": 19998,
+  "detector_buckets": 16,
+  "seconds": 11.35,
+  "peak_mb": 95.2
+ },
+ "pipeline_throughput": {
+  "packets": 7200,
+  "pps": 3366,
+  "handshakes": 300,
+  "seconds": 15.31,
+  "peak_mb": 137.2
+ },
+ "engine_throughput": {
+  "packets": 4400,
+  "pps": 1426,
+  "processed": 4400,
+  "dropped": 0,
+  "sni_confirmed": 800,
+  "seconds": 11.38,
+  "peak_mb": 91.0
+ }
+}

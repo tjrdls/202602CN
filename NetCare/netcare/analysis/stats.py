@@ -23,6 +23,10 @@ def proto_group(p: str) -> str:
 
 class LiveStats:
     HISTORY_SEC = 3600
+    # 출발지·목적지·포트별 누적 카운터의 키 상한. 넘으면 패킷 수가 적은 쪽부터 절반을 버린다.
+    # (가속 소크 시험: 6시간 분량에서 출발지 키 125,279개까지 끝없이 늘었음 → 메모리 증가 원인)
+    # 상위 N 목록은 많이 주고받은 IP 라서 그대로 남고, 버린 뒤 '장치 수'는 근사값(unique_approx=True)으로 표시한다.
+    MAX_KEYS = 20000
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -47,6 +51,7 @@ class LiveStats:
             self.dst_packets = Counter(); self.dst_bytes = Counter()
             self.port_packets = Counter(); self.port_bytes = Counter()
             self.port_label: dict[str, str] = {}
+            self.evicted = {"src": 0, "dst": 0, "port": 0}
             self.buckets: dict[int, list] = {}  # sec → [packets, bytes, up, down, tcp, udp, icmp, other]
             self._minute_pending: dict[int, dict] = defaultdict(lambda: {"packets": 0, "bytes": 0, "up": 0, "down": 0,
                                                                          "tcp": 0, "udp": 0, "icmp": 0, "other": 0})
@@ -71,12 +76,19 @@ class LiveStats:
                 self.ip_version[f"IPv{r['ip_version']}"] += 1
             if r["src"]:
                 self.src_packets[r["src"]] += 1; self.src_bytes[r["src"]] += size
+                if len(self.src_packets) > self.MAX_KEYS:
+                    self._trim("src", self.src_packets, self.src_bytes)
             if r["dst"]:
                 self.dst_packets[r["dst"]] += 1; self.dst_bytes[r["dst"]] += size
+                if len(self.dst_packets) > self.MAX_KEYS:
+                    self._trim("dst", self.dst_packets, self.dst_bytes)
             if r.get("service_port") is not None:
                 key = f"{r['proto']}/{r['service_port']}"
                 self.port_packets[key] += 1; self.port_bytes[key] += size
-                self.port_label[key] = r.get("service") or key
+                if key not in self.port_label:
+                    self.port_label[key] = r.get("service") or key
+                if len(self.port_packets) > self.MAX_KEYS:
+                    self._trim("port", self.port_packets, self.port_bytes, self.port_label)
             up = size if r["direction"] == "up" else 0
             down = size if r["direction"] == "down" else 0
             self.up_bytes += up; self.down_bytes += down
@@ -88,6 +100,16 @@ class LiveStats:
             b[4 + PROTO_GROUPS.index(g)] += 1
             m = self._minute_pending[sec // 60]
             m["packets"] += 1; m["bytes"] += size; m["up"] += up; m["down"] += down; m[g.lower()] += 1
+
+    def _trim(self, kind: str, packets: Counter, nbytes: Counter, extra: dict | None = None):
+        keep = self.MAX_KEYS // 2
+        drop = [k for k, _ in packets.most_common()[keep:]]
+        for k in drop:
+            packets.pop(k, None)
+            nbytes.pop(k, None)
+            if extra is not None:
+                extra.pop(k, None)
+        self.evicted[kind] += len(drop)
 
     def prune(self, now: float):
         with self._lock:
@@ -146,6 +168,7 @@ class LiveStats:
                 "top_ports": [{"port": k, "label": self.port_label.get(k, k), "packets": self.port_packets[k],
                                "bytes": self.port_bytes[k]} for k, _ in self.port_bytes.most_common(top_n)],
                 "series": series,
-                "unique_src": len(self.src_packets),
-                "unique_dst": len(self.dst_packets),
+                "unique_src": len(self.src_packets) + self.evicted["src"],
+                "unique_dst": len(self.dst_packets) + self.evicted["dst"],
+                "unique_approx": bool(self.evicted["src"] or self.evicted["dst"]),
             }

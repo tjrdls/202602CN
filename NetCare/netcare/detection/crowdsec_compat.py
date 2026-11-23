@@ -237,7 +237,7 @@ class CompatDetector:
         path, args, fname = _split(uri)
         ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
         static = ext in STATIC_EXT
-        req = {"uri": uri, "path": uri, "fname": fname, "static": static, "method": h["method"], "src": src, "dst": dst, "port": dport}
+        req = {"uri": uri, "path": uri, "fname": fname, "static": static, "method": h["method"], "src": src, "dst": dst, "port": dport, "ts": now}
         flow = (src, sport, dst, dport)
         q = self.pending.get(flow)
         if q is None:
@@ -308,7 +308,28 @@ class CompatDetector:
                 self._event("http_admin_probing", src, dst, port, now, value=req["path"], match=m)
 
     # ───────────── 평가 ─────────────
+    def maybe_housekeep(self, now: float):
+        hk = getattr(self, "_housekeep_at", None)
+        if hk is None or now - hk >= 30 or now < hk:
+            self._housekeep_at = now
+            self.housekeep(now)
+
+    def housekeep(self, now: float):
+        """장시간 실행 정리: 다 비워진(새로 만든 것과 같은) 통과 오래된 열린 포트 기록을 지운다.
+
+        CrowdSec 도 통이 완전히 비면(underflow) 그 통을 없앤다. 다 빈 통을 지워도 판정 결과는 같다.
+        """
+        def drained(key, b):
+            sc = SCENARIOS[key[0]]
+            return now >= b.blackhole_until and now - b.last_event >= max(sc.capacity, 1) * sc.leak
+        self.buckets = {k: b for k, b in self.buckets.items() if not drained(k, b)}
+        self.open_ports = {k: v for k, v in self.open_ports.items() if now - v < 300}    # 규칙은 120초 이내만 봄
+        self.pending = {k: q for k, q in self.pending.items() if q and now - q[-1].get("ts", now) < 60}   # 60초 넘게 응답 없는 요청 흐름
+        for k in [k for k, h in self.hits.items() if now - h["last"] > 600]:
+            del self.hits[k]
+
     def evaluate(self, now: float, W: int) -> list[dict]:
+        self.maybe_housekeep(now)
         if len(self.open_ports) > 50000:
             self.open_ports = {k: v for k, v in self.open_ports.items() if now - v < 300}
         if len(self.buckets) > self.MAX_BUCKETS * 0.8:

@@ -1,0 +1,196 @@
+{
+ "tcp_connections": 36000,
+ "quic_connections": 9000,
+ "records": 450000,
+ "wall_sec": 130.6,
+ "traced_mb_peak_phase": 35.95,
+ "traced_mb_after_idle": 25.08,
+ "structures": [
+  {
+   "name": "adv.ttl_hist",
+   "before": 0,
+   "peak": 20000,
+   "after_idle": 20000,
+   "kind": "캐시(상한)",
+   "note": "출발지별 TTL 분포 (LRU 상한 20,000)"
+  },
+  {
+   "name": "enc.flow_kind",
+   "before": 0,
+   "peak": 18000,
+   "after_idle": 18000,
+   "kind": "캐시(상한)",
+   "note": "암호화 흐름 표시 (LRU 상한 50,000)"
+  },
+  {
+   "name": "stats.src_packets",
+   "before": 0,
+   "peak": 15001,
+   "after_idle": 15001,
+   "kind": "캐시(상한)",
+   "note": "세션 누적 통계 (상한 20,000)"
+  },
+  {
+   "name": "stats.src_bytes",
+   "before": 0,
+   "peak": 15001,
+   "after_idle": 15001,
+   "kind": "캐시(상한)",
+   "note": "세션 누적 통계"
+  },
+  {
+   "name": "stats.dst_packets",
+   "before": 0,
+   "peak": 15000,
+   "after_idle": 15000,
+   "kind": "캐시(상한)",
+   "note": "세션 누적 통계"
+  },
+  {
+   "name": "stats.dst_bytes",
+   "before": 0,
+   "peak": 15000,
+   "after_idle": 15000,
+   "kind": "캐시(상한)",
+   "note": "세션 누적 통계"
+  },
+  {
+   "name": "adv.target_ok",
+   "before": 0,
+   "peak": 6580,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "compat.open_ports",
+   "before": 0,
+   "peak": 6580,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.flow_last",
+   "before": 0,
+   "peak": 5960,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.seqs",
+   "before": 0,
+   "peak": 3725,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.conn_ttl",
+   "before": 0,
+   "peak": 3698,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.out_syn",
+   "before": 0,
+   "peak": 2980,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.syn_count",
+   "before": 0,
+   "peak": 2980,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.last_ack",
+   "before": 0,
+   "peak": 2980,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "integ.flows",
+   "before": 0,
+   "peak": 2963,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "enc.reasm.orphans",
+   "before": 0,
+   "peak": 2048,
+   "after_idle": 2048,
+   "kind": "캐시(상한)",
+   "note": "재조립 대기 조각 (상한 2,048)"
+  },
+  {
+   "name": "stats.buckets",
+   "before": 0,
+   "peak": 1801,
+   "after_idle": 1801,
+   "kind": "캐시(상한)",
+   "note": "초 단위 그래프 (최근 1시간)"
+  },
+  {
+   "name": "enc.events",
+   "before": 0,
+   "peak": 300,
+   "after_idle": 300,
+   "kind": "캐시(상한)",
+   "note": "최근 분석 결과 (300개)"
+  },
+  {
+   "name": "stats._minute_pending",
+   "before": 0,
+   "peak": 31,
+   "after_idle": 0,
+   "kind": "캐시(상한)",
+   "note": "DB 반영 대기 (엔진이 0.3초마다 비움)"
+  },
+  {
+   "name": "det.buckets",
+   "before": 0,
+   "peak": 16,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "adv.secs",
+   "before": 0,
+   "peak": 16,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "integ.secs",
+   "before": 0,
+   "peak": 16,
+   "after_idle": 0,
+   "kind": "시간 만료 대상",
+   "note": ""
+  },
+  {
+   "name": "enc.quic.stats",
+   "before": 11,
+   "peak": 11,
+   "after_idle": 11,
+   "kind": "캐시(상한)",
+   "note": "QUIC 건수 (고정 항목)"
+  }
+ ],
+ "not_released": [],
+ "note": "합성 레코드(네트워크 전송 없음). '시간 만료 대상'은 정지 뒤 비워져야 정상, '캐시(상한)'는 상한까지 남는 것이 설계."
+}

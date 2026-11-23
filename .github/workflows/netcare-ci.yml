@@ -35,6 +35,83 @@ jobs:
       - run: pip install -r requirements.txt pytest-github-actions-annotate-failures
       - run: python -m pytest -q -rfE
 
+  # 실제 OS 캡처 검증: 커널 캡처 통계(AF_PACKET / Npcap)와 빠른 해석 경로를 실제 패킷으로 확인 (고속 유입은 루프백만, eth0 은 평범한 HTTPS 요청만 · 공격 트래픽 없음)
+  live-capture-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: NetCare
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: NetCare/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Loopback capture stress (AF_PACKET kernel statistics)
+        run: |
+          sudo -E env "PATH=$PATH" python scripts/capture_stress.py --iface lo --rates 2000,10000,20000 --seconds 10 --out linux_capture.json
+          python scripts/bench/check_capture_result.py linux_capture.json --method af_packet
+      - name: NIC counters (/sys) and support table
+        run: |
+          python -c "from netcare.capture import capstats; import json; print(json.dumps({'lo': capstats.nic_counters('lo'), 'eth0': capstats.nic_counters('eth0'), 'support': capstats.support_table()}, ensure_ascii=False))"
+      - name: Fast parser equivalence on real Linux packets
+        run: |
+          sudo tcpdump -i lo -w lo.pcap -c 6000 'not port 22' & sleep 2
+          python -m http.server 8799 --bind 127.0.0.1 >/dev/null 2>&1 & sleep 1
+          for i in $(seq 1 40); do curl -s -o /dev/null http://127.0.0.1:8799/ ; curl -s -o /dev/null -g "http://[::1]:8799/" || true; done
+          python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); [s.sendto(b'x'*(i%300),('127.0.0.1',47999)) for i in range(3000)]"
+          sleep 2; sudo pkill -INT tcpdump || true; sleep 1; sudo chmod 644 lo.pcap
+          python scripts/bench/fast_parser_check.py lo.pcap --local 127.0.0.1
+          sudo tcpdump -i eth0 -w eth0.pcap -c 3000 & sleep 1
+          pip download --no-deps -d /tmp/dl requests >/dev/null 2>&1 || true
+          curl -s -o /dev/null https://github.com || true
+          sleep 3; sudo pkill -INT tcpdump || true; sleep 1; sudo chmod 644 eth0.pcap
+          python scripts/bench/fast_parser_check.py eth0.pcap --local "$(hostname -I | awk '{print $1}')"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-capture-linux
+          path: NetCare/linux_capture.json
+
+  live-capture-windows:
+    runs-on: windows-latest
+    continue-on-error: true      # Npcap 무료판은 무인 설치를 지원하지 않아 설치가 실패할 수 있음 → 결과로 기록
+    defaults:
+      run:
+        working-directory: NetCare
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: NetCare/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Install Npcap (best effort)
+        shell: pwsh
+        run: |
+          choco install npcap -y --no-progress --params "'/loopback_support=yes /winpcap_mode=no'"
+          Get-Service npcap -ErrorAction SilentlyContinue
+      - name: Loopback capture stress (Npcap pcap_stats)
+        shell: pwsh
+        run: |
+          $lo = python -c "from scapy.all import conf; print(next((i.name for i in conf.ifaces.values() if 'loopback' in (i.description or '').lower() or 'loopback' in i.name.lower()), ''))"
+          "loopback interface: $lo"
+          if (-not $lo) { throw "Npcap loopback adapter not found" }
+          python scripts/capture_stress.py --iface "$lo" --rates 2000,10000 --seconds 10 --out windows_capture.json
+          python scripts/bench/check_capture_result.py windows_capture.json --method libpcap
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-capture-windows
+          path: NetCare/windows_capture.json
+
   windows-exe:
     needs: test
     runs-on: windows-latest

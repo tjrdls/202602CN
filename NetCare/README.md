@@ -123,7 +123,9 @@ flowchart LR
 ```
 
 ### ① 수집 (Capture)
-- `scapy.AsyncSniffer`가 OS의 패킷 캡처 계층(macOS BPF, Linux AF_PACKET, Windows Npcap)에서 프레임을 받아 **크기가 정해진 큐**에 넣습니다. 큐가 가득 차면 버린 패킷 수를 세어 화면에 표시합니다(조용히 잃지 않음).
+- `scapy.AsyncSniffer`가 OS의 패킷 캡처 계층(macOS BPF, Linux AF_PACKET, Windows Npcap)에서 프레임을 받아 **크기가 정해진 큐**에 넣습니다. 스니퍼는 프레임을 해석하지 않고 **원시 바이트만** 넣습니다. 처리 스레드는 흔한 Ethernet/IPv4/IPv6 + TCP/UDP/IGMP 프레임을 헤더 직접 읽기(빠른 경로)로, 나머지는 Scapy 로 해석합니다(두 경로 결과가 같음을 실측 141만 패킷으로 대조). 실측 패킷 처리량이 약 4배(초당 약 6,600 → 24,000~27,000개)로 늘었습니다.
+- 캡처 중인 인터페이스가 사라지면(랜선·USB 어댑터 분리) 20초 안에 캡처를 멈추고 알립니다(예전: CPU 100% 로 헛돌며 '캡처 중' 표시). 큐가 가득 차면 버린 패킷 수를 세어 화면에 표시합니다(조용히 잃지 않음).
+- 캡처 소켓을 NetCare 가 직접 열어 **단계별 누락**을 10초마다 기록합니다: 응용(NetCare 큐) · 커널(BPF `BIOCGSTATS` / AF_PACKET `PACKET_STATISTICS` / Npcap `pcap_stats`) · NIC(인터페이스 입력 누락). 대시보드 **캡처 상태 · 패킷 누락** 카드와 `GET /api/capture/stats` 에서 볼 수 있고, OS 가 주지 않는 값은 '측정 불가'로 표시합니다.
 - BPF 캡처 필터(예: `tcp port 443`)는 시작 전에 문법을 미리 검사합니다.
 - 무차별(promiscuous) 모드를 거부하는 Wi-Fi 인터페이스는 자동으로 일반 모드로 다시 시도합니다.
 
@@ -219,9 +221,9 @@ flowchart TB
 ### 스레드 구조
 | 스레드 | 하는 일 |
 |---|---|
-| 캡처(AsyncSniffer) | 인터페이스에서 프레임을 받아 큐에 넣기만 함 (가장 가볍게) |
+| 캡처(AsyncSniffer) | 인터페이스에서 원시 프레임을 받아 큐에 넣기만 함 (해석하지 않음, 가장 가볍게) |
 | `netcare-processor` | 큐에서 꺼내 해석 → 통계 → 탐지기 관찰 → 묶음 저장 |
-| `netcare-ticker` | 매 초 탐지 규칙 평가, 진행 중인 경보 갱신 |
+| `netcare-ticker` | 매 초 탐지 규칙 평가, 진행 중인 경보 갱신, 10초마다 캡처 단계별 통계 기록 |
 | `netcare-prober` | 주기적으로 공유기·인터넷 ping, DNS 조회 실측 |
 | `netcare-pcap` / `-test` / `-simlab` | 파일·테스트·실험실 패킷을 같은 처리 경로로 공급 |
 
@@ -234,7 +236,8 @@ flowchart TB
 ### 주요 API
 | 분류 | 엔드포인트 |
 |---|---|
-| 캡처 | `GET /api/interfaces`, `POST /api/capture/start·stop·import`, `POST /api/test/run` |
+| 캡처 | `GET /api/interfaces`, `POST /api/capture/start·stop·import`, `POST /api/test/run`, `GET /api/capture/stats` (응용·커널·NIC 단계 누락) |
+| 진단 | `GET /api/diag/memory` (RSS·tracemalloc·주요 자료구조 원소 수, 읽기 전용 · `NETCARE_TRACEMALLOC=1` 로 시작하면 할당 위치까지) |
 | 화면 데이터 | `GET /api/dashboard`, `/api/stats`, `/api/packets`(ip·port·정렬·페이지), `/api/packets/{id}`, `/api/ip/{ip}`, `/api/search` |
 | 탐지·규칙 | `GET /api/anomalies`, `/api/anomalies/{id}`, `/api/rules`, `/api/rules/{type}` |
 | 조치 | `GET /api/actions/catalog`, `POST /api/actions/preview·execute`, `POST /api/actions/{id}/verify·rollback` |
@@ -552,7 +555,7 @@ sequenceDiagram
 ## 11. 테스트
 
 ```bash
-.venv/bin/python -m pytest -q          # 단위·통합 테스트 133개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실)
+.venv/bin/python -m pytest -q          # 단위·통합 테스트 160개 (파서, 탐지, 확장 규칙, API, 조치·점수, 실험실, 장시간 안정성)
 # UI E2E(71개 항목, 크롬 필요)는 기록을 만들므로 별도 데이터 폴더의 서버에서 실행
 NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 8771 &
 .venv/bin/python scripts/ui_e2e.py --base http://127.0.0.1:8771
@@ -566,12 +569,15 @@ NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 87
 | `test_crowdsec_compat.py` | HTTP 파싱, CrowdSec leaky bucket 의미, SQLi·Log4Shell·탐색·FTP·SSH·다중 포트 스캔, 확장(디코딩 XSS·수동 SQLi·웹 로그인), 정상 사용 오탐 방지 |
 | `test_integrity.py` | 체크섬 비트 변조, TCP RST·데이터 주입, RTP·설정 프로토콜 재전송, 정상 종료·송신 패킷 오탐 방지 |
 | `test_tls_ech.py` | TLS SNI·ECH·ESNI 판정, 잘린 ClientHello 처리 |
+| `test_stability_fp.py` | 실측 오탐 재현(로드밸런서 RST·Google Cloud 연결별 TTL), 진짜 주입은 계속 탐지, 상태 시간 만료·상한, 트래픽 정지 중 정리 |
+| `test_capstats.py` | 커널 캡처 통계(BPF·AF_PACKET 초기화 누적·미지원=측정 불가), 단계별 구간 값, 캡처·메모리 진단 API, 큐 상한·누락 계산, 인터페이스 분리 감지 |
+| `test_fast_parser.py` | 빠른 해석 경로가 Scapy 경로와 같은 레코드를 만드는지(TCP·UDP·IPv6·IGMP·루프백·TLS·HTTP·FTP·RTP), 못 하는 패킷(DNS·조각·VLAN·확장 헤더·ICMP 오류·ARP·터널 포트)은 넘기는지 |
 | `test_rules_v2.py` | 확장 규칙 3종, 규칙 카탈로그 28종, 엔진 종료 정리, DNS-SD 오탐 회귀 |
 | `test_api.py` | API, Host·CSRF 보호, pcap 가져오기, 조치 안전 규칙, 설정 검증, 리포트·내보내기 |
 | `test_remediation_health.py` | 조치 승인·롤백, 보호 주소 차단 거부, 상태 점수 |
 | `test_simlab.py` | 시나리오별 기대 탐지, 정상 기준선 오탐 0, 실험실 분리(실제 DB 변화 없음·전송 함수 없음·시스템 명령 없음), 재현성, 평가 지표 손계산 비교, 실제 네트워크 오탐 회귀 |
 
-종합 검증(탐지 성능·장시간 캡처·안정성·CrowdSec 비교 조건): [docs/08_종합_검증_보고서.md](docs/08_종합_검증_보고서.md) · 결과 보고: [docs/02_테스트_결과.md](docs/02_테스트_결과.md) · 실험실: [docs/05_시뮬레이션랩_결과.md](docs/05_시뮬레이션랩_결과.md) · 고도화: [docs/06_고도화_계획.md](docs/06_고도화_계획.md)
+안정성·신뢰성 개선(메모리 증가 원인·잔여 오탐·커널 누락 측정, 6시간 실측): [docs/09_안정성_신뢰성_개선_보고서.md](docs/09_안정성_신뢰성_개선_보고서.md) · 종합 검증(탐지 성능·장시간 캡처·안정성·CrowdSec 비교 조건): [docs/08_종합_검증_보고서.md](docs/08_종합_검증_보고서.md) · 결과 보고: [docs/02_테스트_결과.md](docs/02_테스트_결과.md) · 실험실: [docs/05_시뮬레이션랩_결과.md](docs/05_시뮬레이션랩_결과.md) · 고도화: [docs/06_고도화_계획.md](docs/06_고도화_계획.md)
 
 ---
 

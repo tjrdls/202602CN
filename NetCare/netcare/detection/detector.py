@@ -217,6 +217,18 @@ class Detector:
         end = int(now)
         return [self.buckets[s] for s in range(end - self.cfg.window_sec, end) if s in self.buckets]
 
+    def _housekeep(self, now: float, W: int):
+        hk = getattr(self, "_housekeep_at", None)
+        if hk is None or now - hk >= 30 or now < hk:
+            self._housekeep_at = now
+            lim = now - W * 2
+            self.half_open = {k: t for k, t in self.half_open.items() if t >= lim}
+            self.dns_ok = {k: v for k, v in self.dns_ok.items() if v >= now - 60}
+        for sub in (getattr(self, "adv", None), getattr(self, "integ", None), getattr(self, "compat", None)):
+            mh = getattr(sub, "maybe_housekeep", None)
+            if mh is not None:
+                mh(now)
+
     def evaluate(self, now: float | None = None) -> list[dict]:
         now = now if now is not None else time.time()
         cfg = self.cfg
@@ -251,6 +263,8 @@ class Detector:
                 lim = now - 60
                 self.dns_ok = {k: v for k, v in self.dns_ok.items() if v >= lim}
 
+            # 장시간 실행 정리: 트래픽이 끊겨 평가 창이 비어도 하위 탐지기의 시간 만료 정리는 계속한다
+            self._housekeep(now, W)
             win = self._window(now)
             if self.first_eval is None:
                 self.first_eval = now
