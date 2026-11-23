@@ -1,0 +1,56 @@
+{
+ "duration_min": 60.1,
+ "samples": 360,
+ "processed": 53328,
+ "app_dropped": 0,
+ "cpu_avg": 0.0,
+ "cpu_max": 0.0,
+ "rss_first": 5.9,
+ "rss_last": 5.9,
+ "rss_max": 5.9,
+ "rss_by_10min": [
+  5.9,
+  5.9,
+  5.9,
+  5.9,
+  5.9,
+  5.9
+ ],
+ "db_lag_p95": 4.29,
+ "capture": {
+  "kernel_method": "af_packet",
+  "app_captured": 53273,
+  "app_processed": 53273,
+  "app_dropped": 0,
+  "kernel_recv": 74109,
+  "kernel_drop": 20836,
+  "kernel_ifdrop": null,
+  "nic_rx_packets": 42171,
+  "nic_rx_dropped": 0,
+  "nic_rx_missed": 0,
+  "intervals_with_kernel_drop": 12,
+  "intervals": 360
+ },
+ "objects_end": {
+  "enc.reasm.orphans": 1747,
+  "stats.buckets": 1510,
+  "enc.events": 300,
+  "adv.seqs": 268,
+  "adv.flow_last": 268,
+  "adv.last_ack": 267,
+  "enc.flow_kind": 200,
+  "adv.conn_ttl": 166,
+  "integ.flows": 134,
+  "adv.out_syn": 128
+ },
+ "alerts": {
+  "tcp_loss": 1,
+  "traffic_surge": 12,
+  "heavy_peer": 10,
+  "port_concentration": 4
+ },
+ "probe_alerts": {
+  "gateway_unreachable": 1
+ },
+ "security_alerts": []
+}

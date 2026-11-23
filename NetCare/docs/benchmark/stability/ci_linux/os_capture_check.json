@@ -1,0 +1,136 @@
+{
+ "env": {
+  "os": "Linux-7.0.0-1020-azure-x86_64-with-glibc2.43",
+  "python": "3.12.16",
+  "scapy": "2.8.0",
+  "use_pcap": false,
+  "L2listen": "L2ListenSocket"
+ },
+ "results": [
+  {
+   "check": "환경",
+   "status": "pass",
+   "detail": {
+    "os": "Linux-7.0.0-1020-azure-x86_64-with-glibc2.43",
+    "python": "3.12.16",
+    "scapy": "2.8.0",
+    "use_pcap": false,
+    "L2listen": "L2ListenSocket"
+   }
+  },
+  {
+   "check": "인터페이스",
+   "status": "pass",
+   "detail": {
+    "count": 4,
+    "chosen": "eth0",
+    "capture_device": "eth0",
+    "os_state_known": true
+   }
+  },
+  {
+   "check": "실제 캡처·커널 통계",
+   "status": "pass",
+   "detail": {
+    "socket": "L2ListenSocket",
+    "kernel_method": "af_packet",
+    "frames": 352,
+    "kernel_start": {
+     "recv": 0,
+     "drop": 0,
+     "ifdrop": null
+    },
+    "kernel_end": {
+     "recv": 352,
+     "drop": 0,
+     "ifdrop": null
+    },
+    "nic_supported": true,
+    "rcvbuf": 16777216,
+    "kernel_error": null
+   }
+  },
+  {
+   "check": "해석 대조 (빠른 경로 = Scapy)",
+   "status": "pass",
+   "detail": {
+    "frames": 352,
+    "fast_path": 351,
+    "identical": 351,
+    "diff_fields": [],
+    "link_class": "Ether"
+   }
+  },
+  {
+   "check": "엔진 실캡처·단계별 통계",
+   "status": "pass",
+   "detail": {
+    "latest": {
+     "ts": 1795428588.3832536,
+     "elapsed": 30.3,
+     "app_captured": 476,
+     "app_processed": 476,
+     "app_dropped": 0,
+     "queue": 0,
+     "kernel_method": "af_packet",
+     "kernel_recv": 476,
+     "kernel_drop": 0,
+     "kernel_ifdrop": null,
+     "nic_rx_packets": 228,
+     "nic_rx_dropped": 0,
+     "nic_rx_errors": 0,
+     "nic_rx_missed": 0,
+     "d_app_captured": 162,
+     "d_app_dropped": 0,
+     "d_kernel_recv": 162,
+     "d_kernel_drop": 0,
+     "d_nic_rx_dropped": 0,
+     "final": false
+    },
+    "iface_watch": "eth0"
+   }
+  },
+  {
+   "check": "루프백 고속 유입",
+   "status": "pass",
+   "detail": [
+    {
+     "rate_target": 2000,
+     "seconds": 10,
+     "sent": 19999,
+     "captured_app": 39998,
+     "processed": 39998,
+     "app_dropped": 0,
+     "kernel_recv": 39998,
+     "kernel_drop": 0,
+     "kernel_method": "af_packet",
+     "peak_queue": 8,
+     "rss_start_mb": 111.3,
+     "rss_peak_mb": 117.2,
+     "drain_sec": 0.0,
+     "raw_frames": true,
+     "rcvbuf": 16777216,
+     "loss_total": -19999
+    },
+    {
+     "rate_target": 10000,
+     "seconds": 10,
+     "sent": 99996,
+     "captured_app": 199992,
+     "processed": 164714,
+     "app_dropped": 35278,
+     "kernel_recv": 199992,
+     "kernel_drop": 0,
+     "kernel_method": "af_packet",
+     "peak_queue": 50000,
+     "rss_start_mb": 117.2,
+     "rss_peak_mb": 137.1,
+     "drain_sec": 1.4,
+     "raw_frames": true,
+     "rcvbuf": 16777216,
+     "loss_total": -64718
+    }
+   ]
+  }
+ ]
+}
