@@ -1,0 +1,77 @@
+# NetCare: Linux 실제 캡처 장시간 시험 (GitHub Actions ubuntu-latest, sudo 로 eth0 실캡처)
+# - OS 자가 점검(scripts/os_capture_check.py): 커널 통계·해석 대조·엔진 실캡처·루프백 고속 유입
+# - NetCare 서버로 eth0 을 60분 실제 캡처하며 10초마다 메모리·처리·누락 기록 (scripts/perf_monitor.py)
+# - 그동안 평범한 트래픽만 발생: 공개 파일 다운로드, DNS 조회 (공격 트래픽 없음)
+# 결과는 NetCare/docs/benchmark/stability/ci_linux/ 에 커밋한다.
+name: NetCare Linux live capture
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/netcare-linux-live.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    defaults:
+      run:
+        working-directory: NetCare
+    env:
+      PYTHONUTF8: "1"
+      MINUTES: "60"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: NetCare/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: OS self-check (real capture)
+        run: |
+          mkdir -p out
+          sudo -E env "PATH=$PATH" python scripts/os_capture_check.py --iface eth0 --seconds 30 --out out/os_capture_check.json | tee out/os_capture_check.txt
+          grep -E "^\[|요약" out/os_capture_check.txt | cut -c1-300 | while read -r l; do echo "::notice title=os-check::$l"; done
+      - name: Live capture on eth0 (60 min)
+        run: |
+          D=$PWD/out/live; mkdir -p $D/data
+          sudo -E env "PATH=$PATH" NETCARE_DATA_DIR=$D/data python run.py --port 8790 --no-browser > $D/server.log 2>&1 &
+          for i in $(seq 1 30); do curl -s http://127.0.0.1:8790/api/status >/dev/null && break; sleep 1; done
+          curl -s -X POST -H 'X-NetCare: 1' -H 'Content-Type: application/json' -d '{"iface":"eth0"}' http://127.0.0.1:8790/api/capture/start | head -c 200; echo
+          PID=$(pgrep -f "run.py --port 8790" | head -1)
+          sudo -E env "PATH=$PATH" python scripts/perf_monitor.py --base http://127.0.0.1:8790 --pid $PID --duration $((MINUTES*60)) --db $D/data/netcare.db --out $D/perf.csv --diag $D/diag.jsonl --top-every 0 > $D/monitor.log 2>&1 &
+          MON=$!
+          end=$(( $(date +%s) + MINUTES*60 ))
+          n=0
+          while [ $(date +%s) -lt $end ]; do
+            n=$((n+1))
+            getent hosts example.com github.com pypi.org >/dev/null || true
+            curl -s -o /dev/null --max-time 20 https://example.com/ || true
+            if [ $((n % 10)) -eq 0 ]; then curl -s -o /dev/null --max-time 60 "https://speed.cloudflare.com/__down?bytes=50000000" || true; fi
+            sleep 30
+          done
+          wait $MON || true
+          curl -s -X POST -H 'X-NetCare: 1' http://127.0.0.1:8790/api/capture/stop | head -c 100; echo
+          sudo pkill -f "run.py --port 8790" || true
+          sleep 2
+          sudo chown -R $(id -u) $D
+          python scripts/bench/live_summary.py --dir $D --out $D/summary.json --md $D/summary.md > /dev/null
+          cat $D/summary.md >> $GITHUB_STEP_SUMMARY
+          grep "^|" $D/summary.md | tail -n +3 | while read -r l; do echo "::notice title=linux-live::$l"; done
+      - name: Commit results
+        run: |
+          R=docs/benchmark/stability/ci_linux; mkdir -p $R
+          cp out/os_capture_check.json out/live/summary.json out/live/summary.md out/live/perf.csv $R/
+          gzip -c out/live/diag.jsonl > $R/diag.jsonl.gz
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add NetCare/docs/benchmark/stability/ci_linux
+          git diff --cached --quiet && exit 0
+          git commit -m "docs(netcare): Linux live capture results (GitHub Actions)"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done
