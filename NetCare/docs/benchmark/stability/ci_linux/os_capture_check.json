@@ -34,14 +34,14 @@
    "detail": {
     "socket": "L2ListenSocket",
     "kernel_method": "af_packet",
-    "frames": 352,
+    "frames": 373,
     "kernel_start": {
      "recv": 0,
      "drop": 0,
      "ifdrop": null
     },
     "kernel_end": {
-     "recv": 352,
+     "recv": 373,
      "drop": 0,
      "ifdrop": null
     },
@@ -54,9 +54,9 @@
    "check": "해석 대조 (빠른 경로 = Scapy)",
    "status": "pass",
    "detail": {
-    "frames": 352,
-    "fast_path": 351,
-    "identical": 351,
+    "frames": 373,
+    "fast_path": 373,
+    "identical": 373,
     "diff_fields": [],
     "link_class": "Ether"
    }
@@ -66,23 +66,23 @@
    "status": "pass",
    "detail": {
     "latest": {
-     "ts": 1795428588.3832536,
+     "ts": 1795432585.847224,
      "elapsed": 30.3,
-     "app_captured": 476,
-     "app_processed": 476,
+     "app_captured": 461,
+     "app_processed": 461,
      "app_dropped": 0,
      "queue": 0,
      "kernel_method": "af_packet",
-     "kernel_recv": 476,
+     "kernel_recv": 461,
      "kernel_drop": 0,
      "kernel_ifdrop": null,
-     "nic_rx_packets": 228,
+     "nic_rx_packets": 218,
      "nic_rx_dropped": 0,
      "nic_rx_errors": 0,
      "nic_rx_missed": 0,
-     "d_app_captured": 162,
+     "d_app_captured": 159,
      "d_app_dropped": 0,
-     "d_kernel_recv": 162,
+     "d_kernel_recv": 159,
      "d_kernel_drop": 0,
      "d_nic_rx_dropped": 0,
      "final": false
@@ -105,8 +105,8 @@
      "kernel_drop": 0,
      "kernel_method": "af_packet",
      "peak_queue": 8,
-     "rss_start_mb": 111.3,
-     "rss_peak_mb": 117.2,
+     "rss_start_mb": 111.5,
+     "rss_peak_mb": 117.4,
      "drain_sec": 0.0,
      "raw_frames": true,
      "rcvbuf": 16777216,
@@ -115,20 +115,20 @@
     {
      "rate_target": 10000,
      "seconds": 10,
-     "sent": 99996,
-     "captured_app": 199992,
-     "processed": 164714,
-     "app_dropped": 35278,
-     "kernel_recv": 199992,
+     "sent": 99995,
+     "captured_app": 199990,
+     "processed": 159580,
+     "app_dropped": 40410,
+     "kernel_recv": 199990,
      "kernel_drop": 0,
      "kernel_method": "af_packet",
-     "peak_queue": 50000,
-     "rss_start_mb": 117.2,
-     "rss_peak_mb": 137.1,
+     "peak_queue": 49729,
+     "rss_start_mb": 117.4,
+     "rss_peak_mb": 136.6,
      "drain_sec": 1.4,
      "raw_frames": true,
      "rcvbuf": 16777216,
-     "loss_total": -64718
+     "loss_total": -59585
     }
    ]
   }
