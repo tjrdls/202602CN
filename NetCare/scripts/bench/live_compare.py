@@ -51,11 +51,15 @@ def main():
     ap.add_argument("--before", required=True)
     ap.add_argument("--after", required=True)
     ap.add_argument("--out", default="")
+    ap.add_argument("--until", type=float, default=0, help="이 시각(유닉스 초) 이후 기록은 버림 (예: 인터페이스가 끊긴 시각)")
     a = ap.parse_args()
     B, A = Path(a.before), Path(a.after)
     cb, sb = session(B)
     ca, sa = session(A)
     db_, da_ = load_diag(B), load_diag(A)
+    if a.until:
+        db_ = [r for r in db_ if r["ts"] <= a.until]
+        da_ = [r for r in da_ if r["ts"] <= a.until]
     t0 = max(sb["started"], sa["started"])
     t1 = min(db_[-1]["ts"], da_[-1]["ts"])
     res = {"overlap": {"start": t0, "end": t1, "hours": round((t1 - t0) / 3600, 2)},

@@ -28,7 +28,31 @@ def open_listen_socket(cap_iface, bpf: str | None, promisc: bool):
     """Scapy sniff() 가 내부에서 여는 것과 같은 수신 소켓. 직접 열어야 커널 통계를 읽을 수 있다."""
     from scapy.data import ETH_P_ALL
     from scapy.interfaces import resolve_iface
-    return resolve_iface(cap_iface).l2listen()(type=ETH_P_ALL, iface=cap_iface, filter=bpf or None, promisc=promisc)
+    sock = resolve_iface(cap_iface).l2listen()(type=ETH_P_ALL, iface=cap_iface, filter=bpf or None, promisc=promisc)
+    enlarge_rcvbuf(sock)
+    return sock
+
+
+RCVBUF_BYTES = 8 * 1024 * 1024
+
+
+def enlarge_rcvbuf(sock) -> int | None:
+    """Linux AF_PACKET 수신 버퍼를 키운다. Scapy 기본값(conf.bufsize)은 64KB 라서 순간 유입 때 커널 단계 누락이 컸다
+    (CI 실측: Ubuntu lo 초당 1만 개에서 커널 누락 67,005개). 권한이 있으면 SO_RCVBUFFORCE, 없으면 net.core.rmem_max 까지.
+    적용된 크기(바이트)를 돌려준다. macOS BPF·Npcap 은 해당 없음(None)."""
+    if socket_kind(sock) != "af_packet":
+        return None
+    s = sock.ins
+    for opt in (getattr(socket, "SO_RCVBUFFORCE", 33), socket.SO_RCVBUF):
+        try:
+            s.setsockopt(socket.SOL_SOCKET, opt, RCVBUF_BYTES)
+            break
+        except OSError:
+            continue
+    try:
+        return s.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+    except OSError:
+        return None
 
 
 class RawFrame:

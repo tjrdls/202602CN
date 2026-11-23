@@ -148,3 +148,24 @@ def test_queue_is_bounded_and_overflow_is_counted(tmp_path):
         eng._enqueue_live(frame)
     assert eng.queue.qsize() == 100 and eng.dropped == 50 and eng.captured == 150
     eng.db.close()
+
+
+def test_enlarge_rcvbuf_only_for_af_packet(monkeypatch):
+    calls = []
+
+    class Ins:
+        def setsockopt(self, level, opt, val):
+            calls.append((opt, val))
+            if opt == getattr(socket, "SO_RCVBUFFORCE", 33):
+                raise PermissionError("no CAP_NET_ADMIN")
+
+        def getsockopt(self, level, opt):
+            return 425984
+
+    class S:
+        ins = Ins()
+    monkeypatch.setattr(capstats, "socket_kind", lambda s: "af_packet")
+    assert capstats.enlarge_rcvbuf(S()) == 425984
+    assert calls[-1] == (socket.SO_RCVBUF, capstats.RCVBUF_BYTES)        # 권한 없으면 일반 SO_RCVBUF 로
+    monkeypatch.setattr(capstats, "socket_kind", lambda s: "bpf")
+    assert capstats.enlarge_rcvbuf(S()) is None

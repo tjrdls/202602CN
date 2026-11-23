@@ -58,6 +58,14 @@ def run(rate: int, seconds: float, iface: str):
     proc = psutil.Process()
     rss0 = proc.memory_info().rss
     eng.start_live(iface, f"udp and port {PORT}")
+    rcvbuf = None
+    try:
+        import socket as _so
+        sk = eng.sniffer._netcare_sock
+        if hasattr(sk, "ins") and isinstance(sk.ins, _so.socket):
+            rcvbuf = sk.ins.getsockopt(_so.SOL_SOCKET, _so.SO_RCVBUF)
+    except Exception:
+        pass
     ready, q = mp.Event(), mp.Queue()
     p = mp.Process(target=blaster, args=(rate, seconds, ready, q))
     p.start()
@@ -88,11 +96,11 @@ def run(rate: int, seconds: float, iface: str):
            "app_dropped": eng.dropped, "kernel_recv": last.get("kernel_recv"), "kernel_drop": last.get("kernel_drop"),
            "kernel_method": last.get("kernel_method"), "peak_queue": peak_q, "rss_start_mb": round(rss0 / 1e6, 1),
            "rss_peak_mb": round(peak_rss / 1e6, 1), "drain_sec": drain, "series": series,
-           "raw_frames": os.environ.get("NETCARE_RAW_FRAMES", "1") != "0"}
+           "raw_frames": os.environ.get("NETCARE_RAW_FRAMES", "1") != "0", "rcvbuf": rcvbuf}
     res["loss_total"] = sent - eng.processed if sent else None
     print(f"rate={rate:>6}/s sent={sent:>7} kernel_recv={res['kernel_recv']} kernel_drop={res['kernel_drop']} "
           f"app_captured={eng.captured} app_drop={eng.dropped} processed={eng.processed} peakQ={peak_q} "
-          f"RSS {res['rss_start_mb']}→peak {res['rss_peak_mb']}MB drain={drain}s", flush=True)
+          f"RSS {res['rss_start_mb']}→peak {res['rss_peak_mb']}MB drain={drain}s rcvbuf={rcvbuf}", flush=True)
     return res
 
 

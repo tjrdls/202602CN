@@ -82,46 +82,8 @@ jobs:
           name: live-capture-linux
           path: NetCare/linux_capture.json
 
-  live-capture-windows:
-    runs-on: windows-latest
-    continue-on-error: true      # Npcap 무료판은 무인 설치를 지원하지 않아 설치가 실패할 수 있음 → 결과로 기록
-    defaults:
-      run:
-        working-directory: NetCare
-    env:
-      PYTHONUTF8: "1"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: NetCare/requirements.txt
-      - run: pip install -r requirements.txt
-      - name: Install Npcap (best effort)
-        shell: pwsh
-        run: |
-          $out = choco install npcap -y --no-progress --params "'/loopback_support=yes /winpcap_mode=no'" 2>&1
-          $code = $LASTEXITCODE
-          $out | Select-Object -Last 6 | ForEach-Object { "::notice title=npcap-install::$_" }
-          Get-Service npcap -ErrorAction SilentlyContinue
-          if ($code -ne 0) { exit $code }
-      - name: Loopback capture stress (Npcap pcap_stats)
-        shell: pwsh
-        run: |
-          $lo = python -c "from scapy.all import conf; print(next((i.name for i in conf.ifaces.values() if 'loopback' in (i.description or '').lower() or 'loopback' in i.name.lower()), ''))"
-          "loopback interface: $lo"
-          if (-not $lo) { throw "Npcap loopback adapter not found" }
-          python scripts/capture_stress.py --iface "$lo" --rates 2000,10000 --seconds 10 --out windows_capture.json
-          python scripts/bench/check_capture_result.py windows_capture.json --method libpcap | Tee-Object -FilePath check.txt
-          $code = $LASTEXITCODE
-          Get-Content check.txt | ForEach-Object { "::notice title=windows-capture::$_" }
-          if ($code -ne 0) { exit $code }
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: live-capture-windows
-          path: NetCare/windows_capture.json
+  # Windows 실캡처(Npcap pcap_stats)는 CI 에서 검증하지 못함: Chocolatey 에 npcap 패키지가 없고(2026-11-23 확인),
+  # Npcap 무료판은 무인 설치를 지원하지 않는다. Windows 커널 통계는 가짜 소켓 단위 테스트만 있음 → 미검증.
 
   windows-exe:
     needs: test

@@ -18,7 +18,7 @@ def main():
     ok = True
     for r in rows:
         line = (f"rate={r['rate_target']} sent={r['sent']} kernel={r['kernel_method']} recv={r['kernel_recv']} drop={r['kernel_drop']} "
-                f"app_captured={r['captured_app']} app_drop={r['app_dropped']} processed={r['processed']} rss_peak={r['rss_peak_mb']}MB")
+                f"app_captured={r['captured_app']} app_drop={r['app_dropped']} processed={r['processed']} rss_peak={r['rss_peak_mb']}MB rcvbuf={r.get('rcvbuf')}")
         print(line)
         checks = {
             "커널 통계 방식": r["kernel_method"] == a.method,
