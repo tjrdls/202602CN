@@ -41,6 +41,17 @@ def _is_bogon(ip: str) -> bool:
     return a.is_loopback or a.is_multicast or a.is_reserved or (a.is_unspecified)
 
 
+def _allowed_unspecified(src: str, r: dict) -> bool:
+    """출발지가 '주소 없음'이어도 표준이 허용하는 경우.
+    - IPv4 0.0.0.0: DHCP 요청 (목적지 포트 67·547)
+    - IPv6 '::': 주소 중복 확인(DAD, RFC 4862)과 MLD 보고(RFC 3810). 둘 다 링크 범위 멀티캐스트(ff02::/16)로만 간다."""
+    if src == "0.0.0.0":
+        return r.get("dport") in (67, 547)
+    if src == "::":
+        return (r.get("dst") or "").lower().startswith("ff02:")
+    return False
+
+
 class _Sec:
     __slots__ = ("arp_conflicts", "arp_unsolicited", "arp_redirected", "spoof", "dns_events", "rtt",
                  "data_segs", "retrans", "dupack3", "icmp_req", "icmp_unanswered", "syn_to", "synack_from",
@@ -241,8 +252,8 @@ class AdvancedDetector:
         if src in lips and mac_known:
             b.spoof.append(("own_ip", src, smac))
             return
-        # ② 예약/특수 주소가 출발지 (DHCP 의 0.0.0.0 은 제외)
-        if _is_bogon(src) and not (src == "0.0.0.0" and r.get("dport") in (67, 547)):
+        # ② 예약/특수 주소가 출발지 (DHCP 의 0.0.0.0, IPv6 DAD·MLD 의 :: 는 제외)
+        if _is_bogon(src) and not _allowed_unspecified(src, r):
             b.spoof.append(("bogon", src, smac))
             return
         # ③ LAN 장치 IP 인데 ARP 로 학습한 MAC 과 다른 프레임

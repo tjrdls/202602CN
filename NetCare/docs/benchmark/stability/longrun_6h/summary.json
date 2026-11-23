@@ -1,0 +1,174 @@
+{
+ "duration_min": 360.0,
+ "samples": 2152,
+ "processed": 8485479,
+ "app_dropped": 0,
+ "cpu_avg": 9.4,
+ "cpu_max": 28.2,
+ "rss_first": 182.0,
+ "rss_last": 95.7,
+ "rss_max": 194.6,
+ "rss_by_10min": [
+  84.0,
+  86.9,
+  73.6,
+  70.8,
+  79.8,
+  75.9,
+  78.8,
+  156.6,
+  101.5,
+  111.3,
+  112.8,
+  108.6,
+  163.6,
+  175.5,
+  116.5,
+  116.2,
+  101.8,
+  157.1,
+  98.9,
+  96.2,
+  95.6,
+  95.6,
+  162.8,
+  96.7,
+  99.4,
+  100.0,
+  96.3,
+  162.6,
+  163.5,
+  97.7,
+  97.7,
+  96.7,
+  162.5,
+  162.9,
+  95.7
+ ],
+ "db_lag_p95": 0.33,
+ "capture": {
+  "kernel_method": "bpf",
+  "app_captured": 8485349,
+  "app_processed": 8485349,
+  "app_dropped": 0,
+  "kernel_recv": 8582634,
+  "kernel_drop": 97285,
+  "kernel_ifdrop": null,
+  "nic_rx_packets": 7453799,
+  "nic_rx_dropped": 0,
+  "nic_rx_missed": null,
+  "intervals_with_kernel_drop": 178,
+  "intervals": 2151
+ },
+ "objects_end": {
+  "stats.buckets": 3602,
+  "enc.flow_kind": 3411,
+  "enc.reasm.orphans": 2048,
+  "stats.dst_packets": 1044,
+  "stats.dst_bytes": 1044,
+  "stats.src_packets": 903,
+  "stats.src_bytes": 903,
+  "enc.quic.conns": 804,
+  "enc.quic.by_flow": 797,
+  "enc.quic.by_server_cid": 786
+ },
+ "alerts": {
+  "tcp_loss": 80,
+  "connection_failure": 8,
+  "ip_packet_flood": 58,
+  "latency_rise": 5,
+  "proto_ratio_shift": 9,
+  "port_concentration": 19,
+  "traffic_surge": 12,
+  "port_scan": 1,
+  "dns_failure": 3,
+  "ip_spoof_suspect": 4,
+  "heavy_peer": 5,
+  "syn_surge": 1
+ },
+ "probe_alerts": {
+  "packet_loss": 27,
+  "high_latency": 6
+ },
+ "security_alerts": [
+  {
+   "type": "ip_spoof_suspect",
+   "at": 1795445579.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "bogon": 5
+    },
+    "sample_sources": [
+     "::"
+    ],
+    "distinct_sources": 1,
+    "frame_macs": [
+     "5a:87:39:ba:69:26",
+     "00:19:66:cb:8b:08"
+    ]
+   }
+  },
+  {
+   "type": "ip_spoof_suspect",
+   "at": 1795447313.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "bogon": 8
+    },
+    "sample_sources": [
+     "::"
+    ],
+    "distinct_sources": 1,
+    "frame_macs": [
+     "00:19:66:cb:8b:08",
+     "00:19:66:cb:8b:09"
+    ]
+   }
+  },
+  {
+   "type": "ip_spoof_suspect",
+   "at": 1795457761.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "bogon": 6
+    },
+    "sample_sources": [
+     "::"
+    ],
+    "distinct_sources": 1,
+    "frame_macs": [
+     "00:19:66:cb:8b:08",
+     "00:19:66:cb:8b:09"
+    ]
+   }
+  },
+  {
+   "type": "ip_spoof_suspect",
+   "at": 1795460930.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "bogon": 3,
+     "ttl": 2
+    },
+    "sample_sources": [
+     "::",
+     "34.149.66.165"
+    ],
+    "distinct_sources": 2,
+    "frame_macs": [
+     "00:19:66:cb:8b:08",
+     "10:5a:95:61:a3:84",
+     "5c:80:b6:af:ef:3d"
+    ]
+   }
+  }
+ ]
+}

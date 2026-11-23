@@ -223,3 +223,42 @@ def test_housekeeping_runs_even_when_traffic_stops():
     for k in range(40):                          # 패킷 없이 20분 동안 평가만
         d.evaluate(T0 + 3 + (k + 1) * 30)
     assert not d.adv.target_ok and not d.integ.flows and not d.adv.conn_ttl and not d.adv.seqs and not d.compat.open_ports
+
+
+def test_ipv6_unspecified_source_for_dad_and_mld_is_not_spoofing():
+    """실측 (6시간 실측 2026-11-23 23:52·00:21): LAN 장치가 주소 중복 확인(DAD)·MLD 보고를 '::' 에서 ff02:: 로 보냄 → 정상."""
+    from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6MLReport2, IPv6, IPv6ExtHdrHopByHop, RouterAlert
+    d = det()
+    other = "00:19:66:cb:8b:08"
+    for i in range(10):
+        d.observe(rec(Ether(src=other, dst="33:33:ff:12:34:56") / IPv6(src="::", dst="ff02::1:ff12:3456", hlim=255)
+                      / ICMPv6ND_NS(tgt="fe80::1234:5678:9abc:def0"), T0 + i * 0.5))
+        d.observe(rec(Ether(src=other, dst="33:33:00:00:00:16") / IPv6(src="::", dst="ff02::16", hlim=1)
+                      / IPv6ExtHdrHopByHop(options=[RouterAlert()]) / ICMPv6MLReport2(), T0 + i * 0.5 + 0.1))
+    assert "ip_spoof_suspect" not in types(d.evaluate(T0 + 6))
+
+
+def test_ipv6_unspecified_source_to_unicast_is_still_flagged():
+    """'::' 에서 유니캐스트로 가는 패킷은 표준에 없음 → 계속 특수 주소 징후."""
+    from scapy.layers.inet6 import IPv6
+    d = det()
+    for i in range(10):
+        d.observe(rec(Ether(src=GW_MAC, dst=MY_MAC) / IPv6(src="::", dst="2001:db8::63", hlim=64) / TCP(sport=4000 + i, dport=80, flags="S"), T0 + i * 0.3))
+    assert any(e[0] == "bogon" for b in d.adv.secs.values() for e in b.spoof)
+
+
+def test_dad_plus_weak_ttl_in_same_window_is_not_spoofing():
+    """실측 (6시간 실측 2026-11-24 04:08): 같은 10초 안에 '::' DAD 3개 + 로드밸런서 TTL 약한 징후 2개 (시험은 DAD 4개로 임계 5를 넘김) → 둘 다 정상이므로 알림 없음."""
+    from scapy.layers.inet6 import ICMPv6ND_NS, IPv6
+    d = det()
+    sp = 52100
+    d.observe(rec(up(GCP, TCP(sport=sp, dport=443, flags="S", seq=1000)), T0))
+    d.observe(rec(down(GCP, 117, TCP(sport=443, dport=sp, flags="SA", seq=5000, ack=1001)), T0 + 0.02))
+    for i in range(30):
+        ttl = 117 if i < 5 else 60
+        d.observe(rec(down(GCP, ttl, TCP(sport=443, dport=sp, flags="PA", seq=5001 + i * 100, ack=1001) / Raw(b"g" * 100)), T0 + 0.1 + i * 0.05))
+    for i in range(4):
+        d.observe(rec(Ether(src="00:19:66:cb:8b:08", dst="33:33:ff:12:34:56") / IPv6(src="::", dst="ff02::1:ff12:3456", hlim=255)
+                      / ICMPv6ND_NS(tgt="fe80::1234:5678:9abc:def0"), T0 + 1 + i * 0.5))
+    assert any(e[0] == "ttl" for b in d.adv.secs.values() for e in b.spoof)   # 약한 징후는 기록됨
+    assert "ip_spoof_suspect" not in types(d.evaluate(T0 + 4))
