@@ -1,0 +1,335 @@
+{
+ "overlap": {
+  "start": 1795428350.319963,
+  "end": 1795432010.987335,
+  "hours": 1.02
+ },
+ "before_started": 1795428349.967626,
+ "after_started": 1795428350.319963,
+ "memory_before": [
+  {
+   "hour": 0,
+   "rss_mb": 166.6,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "stats.src_packets",
+     241
+    ],
+    [
+     "stats.src_bytes",
+     241
+    ],
+    [
+     "stats.dst_packets",
+     87
+    ],
+    [
+     "stats.dst_bytes",
+     87
+    ],
+    [
+     "adv.last_ack",
+     21
+    ],
+    [
+     "adv.seqs",
+     18
+    ],
+    [
+     "enc.reasm.orphans",
+     18
+    ],
+    [
+     "det.local_ips",
+     15
+    ]
+   ]
+  },
+  {
+   "hour": 1,
+   "rss_mb": 172.6,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "stats.buckets",
+     3599
+    ],
+    [
+     "adv.seqs",
+     685
+    ],
+    [
+     "adv.last_ack",
+     684
+    ],
+    [
+     "stats.dst_packets",
+     677
+    ],
+    [
+     "stats.dst_bytes",
+     677
+    ],
+    [
+     "enc.reasm.orphans",
+     663
+    ],
+    [
+     "stats.src_packets",
+     487
+    ],
+    [
+     "stats.src_bytes",
+     487
+    ]
+   ]
+  }
+ ],
+ "memory_after": [
+  {
+   "hour": 0,
+   "rss_mb": 167.0,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "stats.src_packets",
+     238
+    ],
+    [
+     "stats.src_bytes",
+     238
+    ],
+    [
+     "stats.dst_packets",
+     82
+    ],
+    [
+     "stats.dst_bytes",
+     82
+    ],
+    [
+     "adv.flow_last",
+     22
+    ],
+    [
+     "adv.last_ack",
+     21
+    ],
+    [
+     "adv.seqs",
+     18
+    ],
+    [
+     "enc.reasm.orphans",
+     18
+    ]
+   ]
+  },
+  {
+   "hour": 1,
+   "rss_mb": 97.2,
+   "traced_mb": null,
+   "top_objects": [
+    [
+     "stats.buckets",
+     3601
+    ],
+    [
+     "stats.dst_packets",
+     677
+    ],
+    [
+     "stats.dst_bytes",
+     677
+    ],
+    [
+     "enc.reasm.orphans",
+     663
+    ],
+    [
+     "stats.src_packets",
+     487
+    ],
+    [
+     "stats.src_bytes",
+     487
+    ],
+    [
+     "enc.flow_kind",
+     442
+    ],
+    [
+     "enc.events",
+     300
+    ]
+   ]
+  }
+ ],
+ "memory_before_summary": {
+  "samples": 366,
+  "traced_first": null,
+  "traced_last": null,
+  "traced_max": null,
+  "rss_first": 166.6,
+  "rss_last": 172.7,
+  "rss_max": 199.2,
+  "duration_h": 1.02
+ },
+ "memory_after_summary": {
+  "samples": 365,
+  "traced_first": null,
+  "traced_last": null,
+  "traced_max": null,
+  "rss_first": 167.0,
+  "rss_last": 97.8,
+  "rss_max": 186.6,
+  "duration_h": 1.01
+ },
+ "alerts_before": {
+  "tcp_loss": 22,
+  "tcp_injection": 5,
+  "ip_packet_flood": 3
+ },
+ "security_before": [
+  {
+   "type": "tcp_injection",
+   "at": 1795428642.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:50894"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:50894 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:50894 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795429482.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 11
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:51876"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795429713.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:52121"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:52121 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:52121 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795431282.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:53761"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:53761 · TTL 108 (평소 116)",
+     "34.149.66.165:443 → 172.16.104.63:53761 · TTL 108 (평소 116)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795431934.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:54444"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:54444 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:54444 · TTL 109 (평소 117)"
+    ]
+   }
+  }
+ ],
+ "probe_alerts_before": {
+  "packet_loss": 7
+ },
+ "alerts_after": {
+  "tcp_loss": 22,
+  "ip_packet_flood": 6,
+  "traffic_surge": 3
+ },
+ "security_after": [],
+ "probe_alerts_after": {
+  "packet_loss": 8
+ },
+ "app_dropped_before": 0,
+ "app_dropped_after": 0,
+ "processed_before": 768122,
+ "processed_after": 778205,
+ "capture_after_last": {
+  "ts": 1795432007.1811562,
+  "elapsed": 3656.9,
+  "app_captured": 777570,
+  "app_processed": 777570,
+  "app_dropped": 0,
+  "queue": 0,
+  "kernel_method": "bpf",
+  "kernel_recv": 777743,
+  "kernel_drop": 173,
+  "kernel_ifdrop": null,
+  "nic_rx_packets": 736454,
+  "nic_rx_dropped": 0,
+  "nic_rx_errors": 0,
+  "nic_rx_missed": null,
+  "d_app_captured": 1913,
+  "d_app_dropped": 0,
+  "d_kernel_recv": 1913,
+  "d_kernel_drop": 0,
+  "d_nic_rx_dropped": 0,
+  "final": false
+ },
+ "capture_after_drop_intervals": 1,
+ "capture_after_intervals": 364,
+ "capture_rows_in_db": 366
+}

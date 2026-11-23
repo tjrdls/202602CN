@@ -1,0 +1,55 @@
+{
+ "duration_min": 61.0,
+ "samples": 365,
+ "processed": 778205,
+ "app_dropped": 0,
+ "cpu_avg": 6.7,
+ "cpu_max": 10.5,
+ "rss_first": 167.0,
+ "rss_last": 97.8,
+ "rss_max": 186.6,
+ "rss_by_10min": [
+  186.4,
+  95.0,
+  103.9,
+  99.5,
+  149.3,
+  97.2
+ ],
+ "db_lag_p95": 0.32,
+ "capture": {
+  "kernel_method": "bpf",
+  "app_captured": 777570,
+  "app_processed": 777570,
+  "app_dropped": 0,
+  "kernel_recv": 777743,
+  "kernel_drop": 173,
+  "kernel_ifdrop": null,
+  "nic_rx_packets": 736454,
+  "nic_rx_dropped": 0,
+  "nic_rx_missed": null,
+  "intervals_with_kernel_drop": 1,
+  "intervals": 364
+ },
+ "objects_end": {
+  "stats.buckets": 3601,
+  "stats.dst_packets": 677,
+  "stats.dst_bytes": 677,
+  "enc.reasm.orphans": 667,
+  "stats.src_packets": 487,
+  "stats.src_bytes": 487,
+  "enc.flow_kind": 445,
+  "enc.events": 300,
+  "engine.names": 184,
+  "adv.arp_seen": 164
+ },
+ "alerts": {
+  "tcp_loss": 22,
+  "ip_packet_flood": 6,
+  "traffic_surge": 3
+ },
+ "probe_alerts": {
+  "packet_loss": 8
+ },
+ "security_alerts": []
+}

@@ -1,0 +1,140 @@
+{
+ "duration_min": 61.1,
+ "samples": 366,
+ "processed": 768122,
+ "app_dropped": 0,
+ "cpu_avg": 13.7,
+ "cpu_max": 23.9,
+ "rss_first": 166.6,
+ "rss_last": 172.7,
+ "rss_max": 199.2,
+ "rss_by_10min": [
+  199.0,
+  155.1,
+  169.8,
+  167.7,
+  151.6,
+  172.6
+ ],
+ "db_lag_p95": 0.32,
+ "objects_end": {
+  "stats.buckets": 3602,
+  "adv.seqs": 703,
+  "adv.last_ack": 702,
+  "enc.reasm.orphans": 681,
+  "stats.dst_packets": 678,
+  "stats.dst_bytes": 678,
+  "stats.src_packets": 487,
+  "stats.src_bytes": 487,
+  "adv.dns_q": 461,
+  "enc.flow_kind": 452
+ },
+ "alerts": {
+  "tcp_loss": 22,
+  "tcp_injection": 5,
+  "ip_packet_flood": 3
+ },
+ "probe_alerts": {
+  "packet_loss": 7
+ },
+ "security_alerts": [
+  {
+   "type": "tcp_injection",
+   "at": 1795428642.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:50894"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:50894 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:50894 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795429482.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 11
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:51876"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:51876 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795429713.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:52121"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:52121 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:52121 · TTL 109 (평소 117)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795431282.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:53761"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:53761 · TTL 108 (평소 116)",
+     "34.149.66.165:443 → 172.16.104.63:53761 · TTL 108 (평소 116)"
+    ]
+   }
+  },
+  {
+   "type": "tcp_injection",
+   "at": 1795431934.0,
+   "evidence": {
+    "window_sec": 10,
+    "certainty": "suspected",
+    "indicators": {
+     "rst_ttl": 2
+    },
+    "flows": [
+     "34.149.66.165:443 → 172.16.104.63:54444"
+    ],
+    "distinct_flows": 1,
+    "examples": [
+     "34.149.66.165:443 → 172.16.104.63:54444 · TTL 109 (평소 117)",
+     "34.149.66.165:443 → 172.16.104.63:54444 · TTL 109 (평소 117)"
+    ]
+   }
+  }
+ ]
+}

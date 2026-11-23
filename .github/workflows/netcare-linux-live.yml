@@ -43,7 +43,8 @@ jobs:
           sudo -E env "PATH=$PATH" NETCARE_DATA_DIR=$D/data python run.py --port 8790 --no-browser > $D/server.log 2>&1 &
           for i in $(seq 1 30); do curl -s http://127.0.0.1:8790/api/status >/dev/null && break; sleep 1; done
           curl -s -X POST -H 'X-NetCare: 1' -H 'Content-Type: application/json' -d '{"iface":"eth0"}' http://127.0.0.1:8790/api/capture/start | head -c 200; echo
-          PID=$(pgrep -f "run.py --port 8790" | head -1)
+          sleep 2; PID=$(pgrep -u root -f "^[^ ]*python[0-9.]* run.py --port 8790" | head -1)   # sudo 래퍼가 아닌 실제 파이썬 프로세스
+          echo "server pid=$PID: $(ps -o pid=,rss=,args= -p $PID)"
           sudo -E env "PATH=$PATH" python scripts/perf_monitor.py --base http://127.0.0.1:8790 --pid $PID --duration $((MINUTES*60)) --db $D/data/netcare.db --out $D/perf.csv --diag $D/diag.jsonl --top-every 0 > $D/monitor.log 2>&1 &
           MON=$!
           end=$(( $(date +%s) + MINUTES*60 ))
@@ -52,7 +53,7 @@ jobs:
             n=$((n+1))
             getent hosts example.com github.com pypi.org >/dev/null || true
             curl -s -o /dev/null --max-time 20 https://example.com/ || true
-            if [ $((n % 10)) -eq 0 ]; then curl -s -o /dev/null --max-time 60 "https://speed.cloudflare.com/__down?bytes=50000000" || true; fi
+            if [ $((n % 10)) -eq 0 ]; then curl -s -o /dev/null --max-time 60 "https://speed.cloudflare.com/__down?bytes=50000000" -w '::notice title=download::%{speed_download} B/s %{time_total}s\n' || true; fi
             sleep 30
           done
           wait $MON || true

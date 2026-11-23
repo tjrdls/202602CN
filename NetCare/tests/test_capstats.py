@@ -174,7 +174,10 @@ def test_enlarge_rcvbuf_only_for_af_packet(monkeypatch):
 def test_iterative_bpf_extraction_matches_scapy_original():
     """BPF 버퍼에서 프레임을 꺼내는 반복문 버전이 Scapy 원본(재귀)과 같은 결과를 내는지 (프레임·타임스탬프·정렬)."""
     import ctypes
+    import sys
     import pytest
+    if not sys.platform.startswith(("darwin", "freebsd", "openbsd", "netbsd")):
+        pytest.skip("BPF 는 macOS·BSD 전용 (Scapy 가 Linux 에서 불러오기를 거부)")
     ss = pytest.importorskip("scapy.arch.bpf.supersocket")
     rng = __import__("random").Random(5)
 

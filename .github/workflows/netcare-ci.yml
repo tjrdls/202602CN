@@ -68,14 +68,17 @@ jobs:
           for i in $(seq 1 40); do curl -s -o /dev/null http://127.0.0.1:8799/ ; curl -s -o /dev/null -g "http://[::1]:8799/" || true; done
           python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); [s.sendto(b'x'*(i%300),('127.0.0.1',47999)) for i in range(3000)]"
           sleep 2; sudo pkill -INT tcpdump || true; sleep 1; sudo chmod 644 lo.pcap
-          python scripts/bench/fast_parser_check.py lo.pcap --local 127.0.0.1 | tee fp_lo.txt
-          echo "::notice title=linux-fastparser-lo::$(head -1 fp_lo.txt)"
+          set +e
+          python scripts/bench/fast_parser_check.py lo.pcap --local 127.0.0.1 > fp_lo.txt 2>&1; rc_lo=$?
+          cat fp_lo.txt; head -c 900 fp_lo.txt | tr '\n' ' ' | sed 's/^/::notice title=linux-fastparser-lo::/'; echo
           sudo tcpdump -i eth0 -w eth0.pcap -c 3000 & sleep 1
           pip download --no-deps -d /tmp/dl requests >/dev/null 2>&1 || true
           curl -s -o /dev/null https://github.com || true
           sleep 3; sudo pkill -INT tcpdump || true; sleep 1; sudo chmod 644 eth0.pcap
-          python scripts/bench/fast_parser_check.py eth0.pcap --local "$(hostname -I | awk '{print $1}')" | tee fp_eth.txt
-          echo "::notice title=linux-fastparser-eth0::$(head -1 fp_eth.txt)"
+          ls -la eth0.pcap || true
+          python scripts/bench/fast_parser_check.py eth0.pcap --local "$(hostname -I | awk '{print $1}')" > fp_eth.txt 2>&1; rc_eth=$?
+          cat fp_eth.txt; tail -c 900 fp_eth.txt | tr '\n' ' ' | sed 's/^/::notice title=linux-fastparser-eth0::/'; echo
+          exit $(( rc_lo | rc_eth ))
       - uses: actions/upload-artifact@v4
         if: always()
         with:
