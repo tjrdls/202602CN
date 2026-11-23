@@ -1,4 +1,5 @@
 """빠른 해석 경로(fast_record)가 Scapy 경로(parse_packet)와 같은 레코드를 만드는지, 못 하는 패킷은 넘기는지 확인."""
+import socket
 import struct
 
 import scapy.all  # noqa: F401  (실시간 캡처와 같은 계층 바인딩)
@@ -71,7 +72,7 @@ def test_ipv6_igmp_and_checksum_identical():
 
 def test_loopback_identical():
     same(Loopback(type=2) / IP(src="127.0.0.1", dst="127.0.0.1") / UDP(sport=50000, dport=47999) / Raw(b"N" * 120), link="null", local="127.0.0.1")
-    same(Loopback(type=30) / IPv6(src="::1", dst="::1") / TCP(sport=50001, dport=8765, flags="S"), link="null", local="::1")
+    same(Loopback(type=socket.AF_INET6) / IPv6(src="::1", dst="::1") / TCP(sport=50001, dport=8765, flags="S"), link="null", local="::1")
 
 
 def test_cases_left_to_scapy():

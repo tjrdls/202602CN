@@ -54,10 +54,13 @@ jobs:
       - name: Loopback capture stress (AF_PACKET kernel statistics)
         run: |
           sudo -E env "PATH=$PATH" python scripts/capture_stress.py --iface lo --rates 2000,10000,20000 --seconds 10 --out linux_capture.json
-          python scripts/bench/check_capture_result.py linux_capture.json --method af_packet
+          set -o pipefail
+          python scripts/bench/check_capture_result.py linux_capture.json --method af_packet | tee check.txt
+          while read -r l; do echo "::notice title=linux-capture::$l"; done < check.txt
       - name: NIC counters (/sys) and support table
         run: |
-          python -c "from netcare.capture import capstats; import json; print(json.dumps({'lo': capstats.nic_counters('lo'), 'eth0': capstats.nic_counters('eth0'), 'support': capstats.support_table()}, ensure_ascii=False))"
+          python -c "from netcare.capture import capstats; import json; print(json.dumps({'lo': capstats.nic_counters('lo'), 'eth0': capstats.nic_counters('eth0')}))" | tee nic.txt
+          echo "::notice title=linux-nic::$(cat nic.txt)"
       - name: Fast parser equivalence on real Linux packets
         run: |
           sudo tcpdump -i lo -w lo.pcap -c 6000 'not port 22' & sleep 2
@@ -65,12 +68,14 @@ jobs:
           for i in $(seq 1 40); do curl -s -o /dev/null http://127.0.0.1:8799/ ; curl -s -o /dev/null -g "http://[::1]:8799/" || true; done
           python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); [s.sendto(b'x'*(i%300),('127.0.0.1',47999)) for i in range(3000)]"
           sleep 2; sudo pkill -INT tcpdump || true; sleep 1; sudo chmod 644 lo.pcap
-          python scripts/bench/fast_parser_check.py lo.pcap --local 127.0.0.1
+          python scripts/bench/fast_parser_check.py lo.pcap --local 127.0.0.1 | tee fp_lo.txt
+          echo "::notice title=linux-fastparser-lo::$(head -1 fp_lo.txt)"
           sudo tcpdump -i eth0 -w eth0.pcap -c 3000 & sleep 1
           pip download --no-deps -d /tmp/dl requests >/dev/null 2>&1 || true
           curl -s -o /dev/null https://github.com || true
           sleep 3; sudo pkill -INT tcpdump || true; sleep 1; sudo chmod 644 eth0.pcap
-          python scripts/bench/fast_parser_check.py eth0.pcap --local "$(hostname -I | awk '{print $1}')"
+          python scripts/bench/fast_parser_check.py eth0.pcap --local "$(hostname -I | awk '{print $1}')" | tee fp_eth.txt
+          echo "::notice title=linux-fastparser-eth0::$(head -1 fp_eth.txt)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -96,8 +101,11 @@ jobs:
       - name: Install Npcap (best effort)
         shell: pwsh
         run: |
-          choco install npcap -y --no-progress --params "'/loopback_support=yes /winpcap_mode=no'"
+          $out = choco install npcap -y --no-progress --params "'/loopback_support=yes /winpcap_mode=no'" 2>&1
+          $code = $LASTEXITCODE
+          $out | Select-Object -Last 6 | ForEach-Object { "::notice title=npcap-install::$_" }
           Get-Service npcap -ErrorAction SilentlyContinue
+          if ($code -ne 0) { exit $code }
       - name: Loopback capture stress (Npcap pcap_stats)
         shell: pwsh
         run: |
@@ -105,7 +113,10 @@ jobs:
           "loopback interface: $lo"
           if (-not $lo) { throw "Npcap loopback adapter not found" }
           python scripts/capture_stress.py --iface "$lo" --rates 2000,10000 --seconds 10 --out windows_capture.json
-          python scripts/bench/check_capture_result.py windows_capture.json --method libpcap
+          python scripts/bench/check_capture_result.py windows_capture.json --method libpcap | Tee-Object -FilePath check.txt
+          $code = $LASTEXITCODE
+          Get-Content check.txt | ForEach-Object { "::notice title=windows-capture::$_" }
+          if ($code -ne 0) { exit $code }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
