@@ -1,0 +1,39 @@
+{
+  "note": "2026-11-24 실행. 모두 macOS(이 맥). 루프백 실험은 127.0.0.1 닫힌 UDP 포트로만 보냄. 다운로드 실험은 speed.cloudflare.com 공개 파일 50MB를 Wi-Fi(en0)로 받음. 유선 en5는 실험 시점에 연결돼 있지 않았음.",
+  "db_prune_with_real_6h_db": {
+    "desc": "6시간 실측 DB 사본(패킷 30만 2천 행, 471MB, 색인 6개)으로 정리 작업을 켜고/끄고 루프백 유입 (1,200B UDP)",
+    "runs": [
+      {"mode": "full", "rate": 1000, "sec": 60, "kernel_drop": 0, "app_dropped": 0, "prune_ms_top": [108.0, 108.4, 117.5], "insert_ms_top": [121.9, 130.8, 158.8]},
+      {"mode": "full", "rate": 3000, "sec": 40, "kernel_drop": 0, "app_dropped": 0, "prune_ms_top": [108.3, 112.2, 131.2]},
+      {"mode": "empty", "rate": 3000, "sec": 40, "kernel_drop": 0, "app_dropped": 0, "prune_ms_top": [0.1, 0.1, 0.1]},
+      {"mode": "full_noprune", "rate": 3000, "sec": 40, "kernel_drop": 0, "app_dropped": 0},
+      {"mode": "full", "rate": 6000, "sec": 40, "kernel_drop": 0, "app_dropped": 0, "prune_ms_top": [91.5, 107.5, 115.0]},
+      {"mode": "empty", "rate": 6000, "sec": 40, "kernel_drop": 0, "app_dropped": 0},
+      {"mode": "full_noprune", "rate": 6000, "sec": 40, "kernel_drop": 0, "app_dropped": 0}
+    ]
+  },
+  "wifi_download_netcare_vs_tcpdump": {
+    "desc": "en0 Wi-Fi 50MB HTTPS 다운로드 중 NetCare 엔진과 tcpdump(-B 512KB)를 동시에 캡처",
+    "runs": [
+      {"db": "empty", "Mbps": 51.9, "netcare_kernel_drop": 0, "tcpdump_kernel_drop": 0},
+      {"db": "empty", "Mbps": 85.5, "netcare_kernel_drop": 0, "tcpdump_kernel_drop": 0},
+      {"db": "real_6h_db", "Mbps": 18.5, "netcare_kernel_drop": 0, "tcpdump_kernel_drop": 0},
+      {"db": "real_6h_db", "Mbps": 12.2, "netcare_kernel_drop": 0, "tcpdump_kernel_drop": 0},
+      {"db": "real_6h_db", "Mbps": 35.2, "netcare_kernel_drop": 0, "tcpdump_kernel_drop": 0}
+    ]
+  },
+  "loopback_large_frames_netcare_vs_tcpdump": {
+    "desc": "lo0 1,400B UDP 4초, NetCare 엔진과 tcpdump(-B 512KB) 동시",
+    "runs": [
+      {"rate": 20000, "approx_Mbps": 224, "netcare_kernel_drop": 0, "netcare_app_drop": 0, "tcpdump_kernel_drop": 0},
+      {"rate": 40000, "approx_Mbps": 448, "netcare_kernel_drop": 0, "netcare_app_drop": 0, "tcpdump_kernel_drop": 0},
+      {"rate": 80000, "approx_Mbps": 896, "netcare_kernel_recv": 319975, "netcare_kernel_drop": 1055, "netcare_app_drop": 39408, "tcpdump_kernel_drop": 0}
+    ]
+  },
+  "gil_switch_interval_80k": {
+    "desc": "lo0 1,400B 초당 8만 4초, sys.setswitchinterval 기본 5ms vs 0.5ms (각 3회)",
+    "default_5ms_kernel_drop": [1571, 939, 1116],
+    "0.5ms_kernel_drop": [1001, 1078, 3314],
+    "conclusion": "차이 없음 — 스레드 전환 지연은 원인 아님"
+  }
+}
