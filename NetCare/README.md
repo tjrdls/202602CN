@@ -41,12 +41,13 @@ NetCare는 Wireshark 수준의 패킷 분석을 누구나 이해할 수 있는 �
 | 공개 데이터셋 (CSE-CIC-IDS2018) | 라벨된 공격 8건 중 **7건 탐지**(SSH 무차별 대입, 웹 로그인 무차별 대입·XSS·SQL 인젝션 각 2일). FTP는 데이터셋의 FTP 포트가 닫혀 있어 탐지 대상이 아님. 같은 데이터에서 실제 CrowdSec은 웹 공격 0건 | [docs/benchmark/cse-cic-ids2018.md](docs/benchmark/cse-cic-ids2018.md) |
 | 가상 실험실 (합성, 156회) | Precision **100%** · Recall 67.0% · F1 80.2% · FPR **0%**. 강도 1배만 보면 Recall 82.8% · F1 90.6% | [docs/08](docs/08_종합_검증_보고서.md) |
 | 실측 오탐 (같은 트래픽, 수정 전후 동시 1시간) | 보안 알림 Wi-Fi **7건 → 0건**, 유선 **5건 → 0건**. 모두 원시 패킷으로 확인한 오탐(로드밸런서 RST, 클라우드 서버 연결별 TTL) | [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
-| 6시간 연속 실측 (유선, 최종 코드) | 848만 개 처리, 응용 단계 누락 **0**, 메모리 증가 없음(끝 **95.7MB**), 커널 누락 1.13%(iCloud 동기화로 보이는 대용량 다운로드 구간에만 몰림). 보안 알림 4건은 IPv6 `::` 오탐으로 확인 → 수정 | [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
+| 6시간 연속 실측 (유선, 최종 코드) | 848만 개 처리, 응용 단계 누락 **0**, 메모리 증가 없음(끝 **95.7MB**), 커널 누락 1.13%(iCloud 동기화로 보이는 대용량 다운로드 구간에만 몰림 → 원인 확정·해결). 보안 알림 4건은 IPv6 `::` 오탐으로 확인 → 수정 | [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
+| macOS 유선 순간 유입 커널 누락 해결 | 같은 트래픽 30분 동시 캡처(다운로드 249회, 평균 197Mbps): 커널 누락 6,463 → **0**. BPF를 수신 전용 프로세스가 읽어 처리 스레드와 GIL을 나눠 쓰지 않음 | [분석](docs/benchmark/stability/macos_drop_analysis/README.md) |
 | 처리 성능 (실측 패킷) | 엔진 처리량 초당 약 6,600개 → **24,000~27,000개** (빠른 해석 경로). 루프백 유입 초당 6만 개까지 누락 0 | [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
 | 장시간 메모리 (가속 시뮬레이션) | 6시간 분량 96.6MB → **37.4MB**. 12시간 분량에서도 약 44MB에서 멈춤 | [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
 | 고속 유입 메모리 (실측) | 처리 큐가 가득 찰 때 RSS 최대 1,272MB → **308MB**. 큐 5만 개 기준 275.6MB → 20.5MB | [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
 | 암호화 통신 (실측) | Cloudflare trace 정답과 10개 사례 일치. 공개 리졸버 3곳 DoT 실측 모두 'DoT·확인됨' | [docs/07](docs/07_암호화통신_분석.md) · [docs/09](docs/09_안정성_신뢰성_개선_보고서.md) |
-| 테스트 | 단위·통합 테스트 **165개** 통과. GitHub Actions에서 Ubuntu·Windows·macOS 테스트, Linux 실제 캡처, Windows 실행 파일 빌드·실행 | [11. 테스트와 CI](#11-테스트와-ci) |
+| 테스트 | 단위·통합 테스트 **170개** 통과. GitHub Actions에서 Ubuntu·Windows·macOS 테스트, Linux 실제 캡처, Windows 실행 파일 빌드·실행 | [11. 테스트와 CI](#11-테스트와-ci) |
 
 ---
 
@@ -164,6 +165,7 @@ flowchart LR
 - **캡처 소켓을 직접 엽니다.** NetCare가 OS 캡처 소켓(macOS BPF, Linux AF_PACKET, Windows Npcap)을 직접 열어 Scapy `AsyncSniffer`에 넘깁니다. 그래서 커널 단계 통계를 읽을 수 있습니다.
 - **스니퍼는 해석하지 않습니다.** 원시 바이트만 크기가 정해진 큐에 넣습니다. 예전에는 Scapy 객체를 큐에 넣어서, 큐가 가득 차면 메모리가 수백 MB씩 늘었습니다.
 - **커널 캡처 버퍼를 키웁니다.** macOS BPF는 512KB(Scapy 기본 64KB), Linux 수신 버퍼는 8MB를 요청합니다(Scapy 기본 64KB). 짧은 순간 유입에서도 커널 단계 누락이 생기던 문제를 줄였습니다.
+- **macOS는 수신 전용 프로세스가 BPF를 읽습니다.** 처리 스레드와 파이썬 GIL을 나눠 쓰지 않아, 유선 1Gbps 순간 유입에서도 512KB 커널 버퍼를 바로 비웁니다. 엔진이 늦으면 데이터는 그 프로세스 메모리(상한 256MB)에서 기다리고, 넘친 몫은 응용 단계 누락으로 셉니다(`NETCARE_BPF_PUMP=0`이면 기존 방식).
 - **누락을 단계별로 셉니다.** 10초마다 세 단계로 나눠 기록합니다. OS가 주지 않는 값은 '측정 불가'로 표시합니다. 결과는 대시보드 **캡처 상태 · 패킷 누락** 카드와 `GET /api/capture/stats`에서 볼 수 있습니다.
 
   | 단계 | 무엇을 세나 |
@@ -642,7 +644,8 @@ GitHub Actions(`.github/workflows/netcare-bench.yml`)가 다음을 자동으로 
 | Linux 실제 캡처 (GitHub Actions) | AF_PACKET 통계 확인. 수신 버퍼 확대로 초당 1만 개 커널 누락 67,005 → **0** |
 | 같은 트래픽 BPF 버퍼 비교 (Wi-Fi) | 64KB 커널 누락 1,287 → 512KB **0** |
 | 유선 1시간 (같은 트래픽, 수정 전후) | 최종 코드 커널 누락 0.02%. 수정 전 코드는 순간 유입에서 패킷의 약 절반을 기록 없이 놓침(같은 10초 처리 3,786 대 7,202개) |
-| 유선 6시간 (최종 코드) | 응용 누락 0, 커널 누락 1.13%. 누락은 대용량 다운로드가 이어진 80분(2.49GB, iCloud 동기화로 추정)에만 생겼다. 분당 5Mbps 이상 37분 중 35분. DB 정리·CPU·처리 큐는 실험으로 배제 ([분석](docs/benchmark/stability/macos_drop_analysis/README.md)) |
+| 유선 6시간 (최종 코드) | 응용 누락 0, 커널 누락 1.13%. 누락은 대용량 다운로드가 이어진 80분(2.49GB, iCloud 동기화로 추정)에만 생겼다. 원인은 수신 스레드의 GIL 경쟁 → 수신 전용 프로세스로 해결 ([분석](docs/benchmark/stability/macos_drop_analysis/README.md)) |
+| 유선 30분 같은 트래픽 동시 비교 (수신 프로세스 전·후) | 커널 누락 6,463 (34/180구간) → **0** (0/180구간). 처리 패킷·알림 같음, 엔진 CPU 16.5% → 16.7%. 수신 프로세스 RSS 10~15MB, CPU 평균 약 1.9% |
 | Linux eth0 60분 (GitHub Actions) | 응용 누락 0, 보안 알림 0. 50MB 다운로드 순간(7.8~260MB/s)에 커널 누락 27% — 참고 기록(주 사용 환경은 macOS·Windows) |
 
 ### OS별 캡처 통계 지원
@@ -653,7 +656,8 @@ GitHub Actions(`.github/workflows/netcare-bench.yml`)가 다음을 자동으로 
 | 실제 확인 | ✅ 실측 | ✅ CI 실캡처 | ⚠️ 미검증 (단위 테스트만) |
 
 ### 미검증 항목
-- **macOS 유선 대용량 다운로드 때 커널 누락의 최종 원인:** 누락이 대용량 다운로드 구간에만 생긴다는 것까지 확인했습니다. 남은 후보는 순간 유입 때 512KB BPF 버퍼와 수신 스레드 속도이고, 유선 재측정으로 확정합니다([분석](docs/benchmark/stability/macos_drop_analysis/README.md)).
+- 없음. 마지막 항목이던 macOS 유선 순간 유입 커널 누락은 원인을 확정하고 해결했습니다(2026-11-25, [분석](docs/benchmark/stability/macos_drop_analysis/README.md)).
+- 6시간 연속 실측은 수신 프로세스를 넣기 전 코드로 했습니다. 새 방식은 유선 30분 동시 비교로 확인했습니다.
 
 ### 참고 (한계로 보지 않음)
 - **Windows 실제 캡처:** 실제 캡처 수치는 아직 없습니다(가짜 소켓 단위 테스트만 통과). Windows PC에서 명령 한 줄로 확인하는 절차는 [docs/10](docs/10_Windows_캡처_검증_가이드.md)에 있습니다.
@@ -684,7 +688,7 @@ GitHub Actions(`.github/workflows/netcare-bench.yml`)가 다음을 자동으로 
 ## 11. 테스트와 CI
 
 ```bash
-.venv/bin/python -m pytest -q          # 단위·통합 테스트 165개
+.venv/bin/python -m pytest -q          # 단위·통합 테스트 170개
 # UI E2E(71개 항목, 크롬 필요)는 기록을 만들므로 별도 데이터 폴더의 서버에서 실행
 NETCARE_DATA_DIR=/tmp/netcare-e2e .venv/bin/python run.py --no-browser --port 8771 &
 .venv/bin/python scripts/ui_e2e.py --base http://127.0.0.1:8771

@@ -178,7 +178,11 @@ class Engine:
                 if raw:
                     capstats.use_raw_frames(sock)
                 smp = capstats.CaptureStatsSampler(capstats.KernelCounter(sock), iface)   # 시작 기준값을 받기 전에 읽음
-                x = AsyncSniffer(opened_socket=sock, prn=self._enqueue_live, store=False)
+                if raw and capstats.bpf_pump_supported(sock):
+                    # macOS/BSD: BPF 는 수신 전용 프로세스가 읽는다 (GIL 경쟁으로 생기던 유선 순간 유입 커널 누락 대책, capstats 참고)
+                    x = capstats.BpfPumpReader(sock, self._enqueue_live, self._pump_overflow)
+                else:
+                    x = AsyncSniffer(opened_socket=sock, prn=self._enqueue_live, store=False)
                 x.start()
                 time.sleep(0.3)
                 if x.exception is not None or not x.running:
@@ -220,6 +224,11 @@ class Engine:
             self.config.update({"interface": iface, "bpf_filter": bpf})
         log.info("live capture started on %s filter=%r", iface, bpf)
         return sess
+
+    def _pump_overflow(self, n: int):
+        # 수신 프로세스가 메모리 상한을 넘어 버린 프레임: 커널은 넘겨줬지만 엔진이 받지 못함 → 응용 단계 누락
+        self.captured += n
+        self.dropped += n
 
     def _enqueue_live(self, pkt):
         self.captured += 1

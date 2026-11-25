@@ -1,0 +1,10 @@
+RESULT {"mode": "pump1", "Mbps_med": 247.7, "recv": 149482, "kernel_drop": 0, "app_drop": 0, "app_captured": 149482, "peak_queue": 4530, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump0", "Mbps_med": 258.5, "recv": 149357, "kernel_drop": 9, "app_drop": 0, "app_captured": 149348, "peak_queue": 4064, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump1", "Mbps_med": 226.8, "recv": 151893, "kernel_drop": 0, "app_drop": 0, "app_captured": 151893, "peak_queue": 4022, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump0", "Mbps_med": 219.7, "recv": 147917, "kernel_drop": 0, "app_drop": 0, "app_captured": 147917, "peak_queue": 3351, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump1", "Mbps_med": 202.8, "recv": 140599, "kernel_drop": 0, "app_drop": 0, "app_captured": 140599, "peak_queue": 3371, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump0", "Mbps_med": 197.7, "recv": 150662, "kernel_drop": 917, "app_drop": 0, "app_captured": 149745, "peak_queue": 3381, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump1", "Mbps_med": 243.7, "recv": 139316, "kernel_drop": 0, "app_drop": 0, "app_captured": 139320, "peak_queue": 4286, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "pump0", "Mbps_med": 210.9, "recv": 151013, "kernel_drop": 831, "app_drop": 0, "app_captured": 150182, "peak_queue": 3999, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "sustained_pump1", "Mbps_med": 407.1, "recv": 243723, "kernel_drop": 0, "app_drop": 67414, "app_captured": 243723, "peak_queue": 0, "tcpdump": "0 packets dropped by kernel"}
+RESULT {"mode": "sustained_pump0", "Mbps_med": 422.7, "recv": 243374, "kernel_drop": 571, "app_drop": 54369, "app_captured": 242804, "peak_queue": 0, "tcpdump": "0 packets dropped by kernel"}

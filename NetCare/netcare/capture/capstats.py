@@ -170,6 +170,132 @@ def _iterative_bpf_frames(sock):
     sock.buffered_frames = lambda: len(frames)
 
 
+PUMP_CAP_BYTES = 256 * 1024 * 1024     # 수신 프로세스가 엔진 대신 들고 있을 수 있는 최대 바이트 (넘으면 버리고 개수를 센다)
+
+
+def bpf_pump_supported(sock) -> bool:
+    """수신 전용 프로세스를 쓸 수 있는가: macOS/BSD BPF 소켓, 파이썬으로 실행 중(PyInstaller 묶음 아님), 환경변수로 끄지 않음."""
+    import os
+    import sys
+    return (socket_kind(sock) == "bpf" and not getattr(sys, "frozen", False)
+            and os.environ.get("NETCARE_BPF_PUMP", "1") != "0")
+
+
+class BpfPumpReader:
+    """macOS/BSD: BPF 를 별도 프로세스(bpf_pump.py)가 읽고, 이 스레드는 파이프에서 받아 프레임으로 잘라 콜백에 넘긴다.
+
+    같은 프로세스 수신 스레드는 처리 스레드와 GIL 을 나눠 써서, 1Gbps 순간 유입 때 512KB BPF 버퍼(약 4ms 분량)를
+    제때 비우지 못했다(유선 실측: tcpdump 0, NetCare 누락). 수신 프로세스는 GIL 경쟁이 없어 커널 버퍼를 바로 비우고,
+    엔진이 늦으면 데이터는 그 프로세스 메모리(상한 PUMP_CAP_BYTES)에서 기다린다. 상한을 넘겨 버린 프레임은
+    응용 단계 누락으로 센다(on_overflow). 커널 통계는 같은 BPF 장치를 공유하므로 엔진 쪽 소켓에서 그대로 읽는다.
+    AsyncSniffer 와 같은 속성(start·stop·running·exception)을 가진다."""
+
+    def __init__(self, sock, prn, on_overflow=None):
+        import threading
+        self.sock, self.prn, self.on_overflow = sock, prn, on_overflow
+        self.exception = None
+        self.proc = None
+        self._stop = threading.Event()
+        self._running = False
+        self.overflow_frames = 0
+        self.thread = threading.Thread(target=self._run, name="netcare-bpf-pump", daemon=True)
+
+    @property
+    def running(self) -> bool:
+        return self._running
+
+    def start(self):
+        import subprocess
+        import sys
+
+        import scapy.arch.bpf.supersocket as ss
+        h = ss.bpf_hdr
+        fd = self.sock.bpf_fd
+        args = [sys.executable, "-I", str(Path(__file__).with_name("bpf_pump.py")), str(fd), str(ss.BPF_BUFFER_LENGTH),
+                str(PUMP_CAP_BYTES), str(h.bh_caplen.offset), str(h.bh_hdrlen.offset), str(h.bh_datalen.offset),
+                str(ss.BPF_ALIGNMENT)]
+        self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.DEVNULL, pass_fds=(fd,), bufsize=0)
+        self._running = True
+        self.thread.start()
+
+    def stop(self, join: bool = True):
+        self._stop.set()
+        p = self.proc
+        if p is not None and p.poll() is None:
+            p.terminate()
+            try:
+                p.wait(timeout=3)
+            except Exception:
+                p.kill()
+        if join and self.thread.is_alive():
+            self.thread.join(timeout=3)
+
+    def _run(self):
+        import os
+        import select
+
+        import scapy.arch.bpf.supersocket as ss
+        hl, nano = ss._bpf_hdr_len, getattr(ss, "_NANOTIME", False)
+        hdr, align = ss.bpf_hdr.from_buffer_copy, ss.L2bpfListenSocket.bpf_align
+        prn, stop = self.prn, self._stop
+        pfd = self.proc.stdout.fileno()
+        pending = bytearray()
+        try:
+            while not stop.is_set():
+                r, _, _ = select.select([pfd], [], [], 0.5)
+                if not r:
+                    if self.proc.poll() is not None:
+                        break
+                    continue
+                chunk = os.read(pfd, 4 * 1024 * 1024)
+                if not chunk:                                  # 수신 프로세스가 끝남
+                    break
+                pending += chunk
+                pos = 0
+                while True:
+                    avail = len(pending) - pos
+                    if avail < 4:
+                        break
+                    ln = int.from_bytes(pending[pos:pos + 4], "little")
+                    if ln == 0xFFFFFFFF:                       # 수신 프로세스가 상한을 넘어 버린 프레임 수
+                        if avail < 8:
+                            break
+                        k = int.from_bytes(pending[pos + 4:pos + 8], "little")
+                        self.overflow_frames += k
+                        if self.on_overflow:
+                            self.on_overflow(k)
+                        pos += 8
+                        continue
+                    if avail - 4 < ln:
+                        break
+                    buf = bytes(pending[pos + 4:pos + 4 + ln])
+                    pos += 4 + ln
+                    cls = self.sock.guessed_cls
+                    n, off, first = len(buf), 0, True
+                    while n - off >= hl and (first or n - off >= 20):
+                        first = False
+                        h = hdr(buf, off)
+                        if h.bh_datalen == 0:
+                            break
+                        st = off + h.bh_hdrlen
+                        ts = h.bh_tstamp.tv_sec + (1e-9 * h.bh_tstamp.tv_nsec if nano else 1e-6 * h.bh_tstamp.tv_usec)
+                        prn(RawFrame(cls, buf[st:st + h.bh_caplen], ts))
+                        off += align(h.bh_hdrlen, h.bh_caplen)
+                if pos:
+                    del pending[:pos]
+            if not stop.is_set() and self.proc.poll() is not None and self.proc.returncode not in (0, None):
+                self.exception = RuntimeError(f"BPF 수신 프로세스가 종료됨 (코드 {self.proc.returncode})")
+        except Exception as e:                             # AsyncSniffer 처럼 예외를 보관하고 멈춘다 (엔진이 감지)
+            self.exception = e
+            log.exception("BPF pump reader failed")
+        finally:
+            self._running = False
+            try:
+                self.proc.stdout.close()
+            except Exception:
+                pass
+
+
 def iface_state(name: str | None) -> bool | None:
     """인터페이스가 있고 켜져 있으면 True, 없거나 꺼졌으면 False, 확인할 수 없으면 None."""
     if not name:

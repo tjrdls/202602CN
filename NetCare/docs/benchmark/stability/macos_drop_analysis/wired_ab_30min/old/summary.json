@@ -1,0 +1,55 @@
+{
+ "duration_min": 30.1,
+ "samples": 180,
+ "processed": 2555552,
+ "app_dropped": 0,
+ "cpu_avg": 16.5,
+ "cpu_max": 45.0,
+ "rss_first": 175.5,
+ "rss_last": 79.2,
+ "rss_max": 176.2,
+ "rss_by_10min": [
+  90.0,
+  98.5,
+  79.2
+ ],
+ "db_lag_p95": 0.3,
+ "capture": {
+  "kernel_method": "bpf",
+  "app_captured": 2555548,
+  "app_processed": 2555548,
+  "app_dropped": 0,
+  "kernel_recv": 2562011,
+  "kernel_drop": 6463,
+  "kernel_ifdrop": null,
+  "nic_rx_packets": 2133787,
+  "nic_rx_dropped": 0,
+  "nic_rx_missed": null,
+  "intervals_with_kernel_drop": 34,
+  "intervals": 180
+ },
+ "objects_end": {
+  "stats.buckets": 1806,
+  "enc.reasm.orphans": 1007,
+  "stats.dst_packets": 695,
+  "stats.dst_bytes": 695,
+  "enc.flow_kind": 570,
+  "stats.src_packets": 496,
+  "stats.src_bytes": 496,
+  "enc.events": 300,
+  "engine.names": 258,
+  "adv.ttl_hist": 147
+ },
+ "alerts": {
+  "ip_packet_flood": 5,
+  "port_concentration": 1,
+  "heavy_peer": 3,
+  "latency_rise": 1,
+  "tcp_loss": 3
+ },
+ "probe_alerts": {
+  "packet_loss": 2,
+  "high_latency": 1
+ },
+ "security_alerts": []
+}
